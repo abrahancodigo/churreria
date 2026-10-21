@@ -1,0 +1,34 @@
+# Firebase local / credenciales temporales
+.firebase/
+firebase_creds.json
+firebase_config_temp.json
+login_url.txt
+build_log.txt
+lint_errors.txt
+
+# Backups locales (pueden contener datos del negocio)
+backup/
+
+# Sesión / scratch local
+.commandcode/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,0 +1,115 @@
+/* Import Google Font - Plus Jakarta Sans for modern look */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+
+  /* Custom Scrollbar for content areas */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary-200 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-300;
+  }
+}
+
+@layer components {
+  /* Glass morphism utilities */
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/30 shadow-glass;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-glass;
+  }
+
+  /* Gradient button base */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold 
+           px-6 py-3 rounded-2xl shadow-glow-primary hover:shadow-lg 
+           hover:scale-105 transition-all duration-300;
+  }
+
+  /* Input styles */
+  .input-modern {
+    @apply w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-slate-200 
+           rounded-2xl focus:outline-none focus:border-primary-400 focus:shadow-glow-primary 
+           transition-all duration-300 text-slate-700 font-medium placeholder-slate-400;
+  }
+
+  /* Card styles */
+  .card-modern {
+    @apply bg-gradient-to-br from-white/90 via-white/60 to-white/80 backdrop-blur-xl 
+           border border-white/40 shadow-glass-lg rounded-[2rem] p-6 
+           hover:shadow-glass-xl transition-all duration-300;
+  }
+}
+
+@layer utilities {
+  /* Text gradient */
+  .text-gradient {
+    @apply text-transparent bg-clip-text;
+  }
+
+  .text-gradient-primary {
+    @apply text-gradient bg-gradient-to-r from-primary-600 to-accent-600;
+  }
+
+  /* Animation utilities */
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+}
+
+/* Print styles */
+@media print {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
