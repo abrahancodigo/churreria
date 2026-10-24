@@ -23,12 +23,15 @@ export const ToastProvider = ({ children }) => {
     return (
         <ToastContext.Provider value={{ addToast }}>
             {children}
-            <div className="fixed bottom-6 right-6 z-50 space-y-3">
+            <div className="fixed z-[60] inset-x-4 bottom-safe sm:inset-x-auto sm:right-6 sm:bottom-6 space-y-3 pointer-events-none">
                 {toasts.map((toast) => (
                     <div
                         key={toast.id}
+                        role="status"
+                        aria-live="polite"
                         className={`flex items-center gap-3 p-4 rounded-2xl shadow-glass-lg backdrop-blur-xl 
-                                  border border-white/30 animate-slide-up min-w-[320px] max-w-md
+                                  border border-white/30 animate-slide-up w-full sm:min-w-[320px] sm:max-w-md
+                                  pointer-events-auto
                                   ${toast.type === "error" 
                                       ? "bg-danger-500/95 text-white" 
                                       : "bg-success-500/95 text-white"
@@ -39,10 +42,11 @@ export const ToastProvider = ({ children }) => {
                         ) : (
                             <AlertCircle className="h-5 w-5 flex-shrink-0" />
                         )}
-                        <span className="font-medium flex-1">{toast.message}</span>
+                        <span className="font-medium flex-1 break-words">{toast.message}</span>
                         <button 
                             onClick={() => removeToast(toast.id)} 
-                            className="p-1 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
+                            className="touch-target -my-2 -mr-2 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
+                            aria-label="Cerrar notificación"
                         >
                             <X size={18} />
                         </button>

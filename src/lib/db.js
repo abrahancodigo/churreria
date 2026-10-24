@@ -12,7 +12,8 @@ import {
     onSnapshot,
     runTransaction,
     writeBatch,
-    where
+    where,
+    limit
 } from "firebase/firestore";
 
 // Collection References
@@ -277,22 +278,61 @@ export const deleteProduct = async (productId) => {
 
 // --- Counters ---
 
-export const getNextCorrelativo = async (sucursal, type) => {
-    if (type !== 'exit' && type !== 'entry') return "";
-
+/**
+ * Returns the next movement reference number (zero padded to 4 digits).
+ *
+ * The counter is global: `counters/global_movements.lastNumber` is written by
+ * adjustStock() whenever a movement with a numeric reference is saved, so
+ * reading it here gives the next free number.
+ */
+export const getNextCorrelativo = async () => {
     try {
         const counterRef = doc(db, "counters", "global_movements");
         const counterSnap = await getDoc(counterRef);
 
-        if (counterSnap.exists()) {
-            const nextNumber = (counterSnap.data().lastNumber || 0) + 1;
-            return String(nextNumber).padStart(4, '0');
-        } else {
-            return "0001";
-        }
+        const lastNumber = counterSnap.exists() ? Number(counterSnap.data().lastNumber) || 0 : 0;
+        return String(lastNumber + 1).padStart(4, '0');
     } catch (error) {
         console.error("Error fetching correlativo:", error);
         return "";
+    }
+};
+
+/**
+ * Distinct sucursal names already used in past movements.
+ *
+ * There is no sucursales collection yet, so the catalog is derived from the
+ * `transactions` collection. New transactions store `sucursal` as a field;
+ * older ones only embed it in `notes` as "Sucursal: <name>", so both are read.
+ * Used to feed the <datalist> suggestions without migrating any data.
+ */
+export const getSucursalesUsadas = async () => {
+    try {
+        const q = query(
+            transactionsRef,
+            where("type", "in", ["entry", "exit"]),
+            orderBy("timestamp", "desc"),
+            limit(500)
+        );
+        const snapshot = await getDocs(q);
+
+        const names = new Set();
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const fromField = (data.sucursal || "").trim();
+            if (fromField) names.add(fromField);
+
+            const match = (data.notes || "").match(/Sucursal:\s*([^|]+)/i);
+            if (match) {
+                const fromNotes = match[1].trim();
+                if (fromNotes) names.add(fromNotes);
+            }
+        });
+
+        return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+    } catch (error) {
+        console.error("Error fetching sucursales:", error);
+        return [];
     }
 };
 

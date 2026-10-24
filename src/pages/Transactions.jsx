@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase.config";
-import { collection, query, orderBy, limit, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { format } from "date-fns";
 import { Search, Trash2, Eye, X, Printer, RefreshCw, FileDown, Edit2 } from "lucide-react";
 import { deleteTransaction, editTransaction, getProducts } from "../lib/db";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useCompany } from "../context/CompanyContext";
 import { useRole } from "../hooks/useRole";
+import ConfirmDialog from "../components/ConfirmDialog";
 import * as XLSX from "xlsx";
 
 export default function Transactions() {
@@ -18,28 +20,12 @@ export default function Transactions() {
     const [editFormData, setEditFormData] = useState(null);
     const [viewingTransaction, setViewingTransaction] = useState(null);
     const [enrichedItems, setEnrichedItems] = useState([]);
-    const [loadingPrices, setLoadingPrices] = useState(false);
-    const [companyInfo, setCompanyInfo] = useState({ name: "", logoUrl: "" });
     const [savingEdit, setSavingEdit] = useState(false);
+    const [transactionToDelete, setTransactionToDelete] = useState(null);
     const { addToast } = useToast();
     const { user } = useAuth();
     const { isAdmin } = useRole();
-
-    // Fetch company info for logo
-    useEffect(() => {
-        const fetchCompanyInfo = async () => {
-            try {
-                const docRef = doc(db, "settings", "company");
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    setCompanyInfo(docSnap.data());
-                }
-            } catch (error) {
-                console.error("Error fetching company info:", error);
-            }
-        };
-        fetchCompanyInfo();
-    }, []);
+    const { companyInfo } = useCompany();
 
     // Fetch products for current prices
     useEffect(() => {
@@ -141,14 +127,17 @@ export default function Transactions() {
             addToast("Solo los administradores pueden eliminar transacciones.", "error");
             return;
         }
-        const confirmMsg = `¿Estás seguro de eliminar esta ${tx.type === 'sale' ? 'venta' : tx.type === 'entry' ? 'entrada' : 'salida'}?\n\nEsto revertirá los cambios de inventario.`;
+        setTransactionToDelete(tx);
+    };
 
-        if (!window.confirm(confirmMsg)) return;
-
+    const confirmDelete = async () => {
+        if (!transactionToDelete) return;
+        const tx = transactionToDelete;
         setDeleting(tx.id);
         try {
             await deleteTransaction(tx.id, tx);
             addToast("Transacción eliminada y stock revertido correctamente.");
+            setTransactionToDelete(null);
         } catch (error) {
             addToast("Error al eliminar: " + error.message, "error");
         } finally {
@@ -433,7 +422,8 @@ export default function Transactions() {
 
             {/* Desktop Table View */}
             <div className="hidden md:block bg-white shadow overflow-hidden sm:rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
@@ -505,7 +495,8 @@ export default function Transactions() {
                             </tr>
                         )}
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
 
             {/* Mobile Card View */}
@@ -879,6 +870,7 @@ export default function Transactions() {
                             <div>
                                 <label className="block text-sm font-bold text-gray-900 mb-2">Productos</label>
                                 <div className="border rounded-md overflow-hidden">
+                                    <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
@@ -941,6 +933,7 @@ export default function Transactions() {
                                             ))}
                                         </tbody>
                                     </table>
+                                    </div>
                                 </div>
                             </div>
 
@@ -987,6 +980,18 @@ export default function Transactions() {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={!!transactionToDelete}
+                title="Eliminar transacción"
+                message={transactionToDelete
+                    ? `¿Estás seguro de eliminar esta ${transactionToDelete.type === 'sale' ? 'venta' : transactionToDelete.type === 'entry' ? 'entrada' : 'salida'}?\n\nEsto revertirá los cambios de inventario.`
+                    : ""}
+                confirmLabel="Sí, eliminar"
+                loading={!!deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => !deleting && setTransactionToDelete(null)}
+            />
         </div>
     );
 }

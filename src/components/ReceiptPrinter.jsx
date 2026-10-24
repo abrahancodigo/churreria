@@ -1,34 +1,10 @@
-import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase.config";
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { useCompany } from "../context/CompanyContext";
 
 const ReceiptPrinter = forwardRef((props, ref) => {
   const iframeRef = useRef(null);
   const [content, setContent] = useState(null);
-  const [companyInfo, setCompanyInfo] = useState({ name: "CHURRERIA PORFIRIO", address: "General Store", logoUrl: "" });
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, "settings", "company"));
-        if (docSnap.exists()) {
-          setCompanyInfo(docSnap.data());
-        }
-      } catch (e) {
-        console.error("Error fetching receipt settings:", e);
-      }
-    };
-    fetchSettings();
-  }, []);
-
-  useImperativeHandle(ref, () => ({
-    print: (data) => {
-      setContent(data);
-      setTimeout(() => {
-        printReceipt(data);
-      }, 100);
-    }
-  }));
+  const { companyInfo } = useCompany();
 
   const printReceipt = (data) => {
     const iframe = iframeRef.current;
@@ -140,6 +116,16 @@ const ReceiptPrinter = forwardRef((props, ref) => {
     iframe.contentWindow.focus();
     iframe.contentWindow.print();
   };
+
+  // Exposed after printReceipt is declared to avoid a temporal-dead-zone access.
+  useImperativeHandle(ref, () => ({
+    print: (data) => {
+      setContent(data);
+      setTimeout(() => {
+        printReceipt(data);
+      }, 100);
+    }
+  }));
 
   return (
     <iframe

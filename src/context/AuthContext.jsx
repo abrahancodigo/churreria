@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => signOut(auth);
 
-    if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    if (loading) return <div className="flex justify-center items-center h-screen h-[100dvh]">Loading...</div>;
 
     return (
         <AuthContext.Provider value={{ user, userData, login, register, logout }}>

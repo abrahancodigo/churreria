@@ -2,12 +2,11 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import { Menu, X } from "lucide-react";
-import { db } from "../firebase.config";
-import { doc, getDoc } from "firebase/firestore";
+import { useCompany } from "../context/CompanyContext";
 
 export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [companyInfo, setCompanyInfo] = useState({ name: "Sistema POS" });
+    const { companyInfo } = useCompany();
     const location = useLocation();
 
     // Close sidebar on route change (mobile)
@@ -15,24 +14,22 @@ export default function Layout() {
         setIsSidebarOpen(false);
     }, [location.pathname]);
 
-    // Fetch company name for mobile header
+    // Lock body scroll while the mobile drawer is open
     useEffect(() => {
-        const fetchCompanyInfo = async () => {
-            try {
-                const docRef = doc(db, "settings", "company");
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    setCompanyInfo(docSnap.data());
-                }
-            } catch (error) {
-                console.error("Error fetching company info:", error);
-            }
-        };
-        fetchCompanyInfo();
-    }, []);
+        document.body.style.overflow = isSidebarOpen ? "hidden" : "";
+        return () => { document.body.style.overflow = ""; };
+    }, [isSidebarOpen]);
+
+    // Escape closes the drawer
+    useEffect(() => {
+        if (!isSidebarOpen) return;
+        const onKeyDown = (e) => { if (e.key === "Escape") setIsSidebarOpen(false); };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [isSidebarOpen]);
 
     return (
-        <div className="flex h-screen bg-gradient-to-br from-slate-50 via-primary-50/30 to-accent-50/20 overflow-hidden">
+        <div className="flex h-screen h-[100dvh] bg-gradient-to-br from-slate-50 via-primary-50/30 to-accent-50/20 overflow-hidden">
             {/* Subtle dot pattern background */}
             <div 
                 className="fixed inset-0 opacity-[0.015] pointer-events-none z-0"
@@ -70,7 +67,7 @@ export default function Layout() {
 
                     {/* Sidebar */}
                     <div
-                        className="absolute left-0 top-0 h-full w-64 animate-slide-up"
+                        className="absolute left-0 top-0 h-full w-64 overflow-y-auto animate-slide-in-left"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close button */}

@@ -399,7 +399,7 @@ export default function Dashboard() {
 
                         {/* Table */}
                         <div className="flex-1 overflow-hidden bg-white/60 backdrop-blur-sm rounded-2xl border border-white/30">
-                            <div className="overflow-y-auto max-h-[400px]">
+                            <div className="overflow-y-auto max-h-[400px] overflow-x-auto custom-scrollbar">
                                 <table className="min-w-full">
                                     <thead className="bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
                                         <tr>

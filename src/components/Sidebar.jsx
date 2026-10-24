@@ -1,8 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
-import { db } from "../firebase.config";
-import { doc, getDoc } from "firebase/firestore";
+import { useCompany } from "../context/CompanyContext";
+import { useState } from "react";
 import {
     LayoutDashboard,
     Package,
@@ -22,23 +21,8 @@ export default function Sidebar() {
     const { logout, user } = useAuth();
     const location = useLocation();
     const { isAdmin } = useRole();
-    const [companyInfo, setCompanyInfo] = useState({ name: "Sistema de Inventario", logoUrl: "" });
+    const { companyInfo } = useCompany();
     const [showLogoModal, setShowLogoModal] = useState(false);
-
-    useEffect(() => {
-        const fetchCompanyInfo = async () => {
-            try {
-                const docRef = doc(db, "settings", "company");
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    setCompanyInfo(docSnap.data());
-                }
-            } catch (error) {
-                console.error("Error fetching company info:", error);
-            }
-        };
-        fetchCompanyInfo();
-    }, []);
 
     const navItems = [
         { name: "Inicio", path: "/", icon: LayoutDashboard },

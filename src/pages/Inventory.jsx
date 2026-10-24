@@ -3,6 +3,7 @@ import { Plus, Edit, Trash, X, ImageIcon, Search, Package } from "lucide-react";
 import { getProducts, addProduct, updateProduct, deleteProduct } from "../lib/db";
 import { useToast } from "../context/ToastContext";
 import { useRole } from "../hooks/useRole";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function Inventory() {
     const [products, setProducts] = useState([]);
@@ -11,6 +12,8 @@ export default function Inventory() {
     const [formData, setFormData] = useState({ name: "", sku: "", price: "", cost: "", stock: "" });
     const [viewingImage, setViewingImage] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [productToDelete, setProductToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
     const { addToast } = useToast();
     const { isAdmin } = useRole();
 
@@ -79,13 +82,20 @@ export default function Inventory() {
             addToast("Solo los administradores pueden eliminar productos.", "error");
             return;
         }
-        if (!window.confirm(`¿Estás seguro de eliminar "${product.name}"?`)) return;
+        setProductToDelete(product);
+    };
 
+    const confirmDelete = async () => {
+        if (!productToDelete) return;
+        setDeleting(true);
         try {
-            await deleteProduct(product.id);
+            await deleteProduct(productToDelete.id);
             addToast("Producto eliminado correctamente.");
+            setProductToDelete(null);
         } catch (error) {
             addToast("Error al eliminar: " + error.message, "error");
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -147,7 +157,7 @@ export default function Inventory() {
 
             {/* Desktop Table View */}
             <div className="hidden md:block bg-white shadow overflow-hidden sm:rounded-lg mt-4">
-                <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+                <div className="overflow-y-auto overflow-x-auto max-h-[calc(100dvh-200px)]">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                             <tr>
@@ -270,7 +280,7 @@ export default function Inventory() {
                         <img
                             src={viewingImage.url}
                             alt={viewingImage.name}
-                            className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+                            className="w-full h-auto max-h-[85dvh] object-contain rounded-lg"
                             onClick={(e) => e.stopPropagation()}
                         />
                         <p className="text-white text-center mt-3 text-lg font-medium">{viewingImage.name}</p>
@@ -429,6 +439,16 @@ export default function Inventory() {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={!!productToDelete}
+                title="Eliminar producto"
+                message={productToDelete ? `¿Estás seguro de eliminar "${productToDelete.name}"? Esta acción no se puede deshacer.` : ""}
+                confirmLabel="Sí, eliminar"
+                loading={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => !deleting && setProductToDelete(null)}
+            />
         </div>
     );
 }

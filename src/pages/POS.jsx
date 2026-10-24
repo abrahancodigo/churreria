@@ -135,8 +135,8 @@ export default function POS() {
 
     // Cart Content Component (reused in both desktop sidebar and mobile modal)
     const CartContent = ({ isMobile = false }) => (
-        <div className={`flex flex-col h-full ${isMobile ? '' : 'bg-white shadow-xl border-l border-gray-200'}`}>
-            <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+        <div className={`flex flex-col h-full min-h-0 ${isMobile ? '' : 'bg-white shadow-xl border-l border-gray-200'}`}>
+            <div className="shrink-0 p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-800 flex items-center">
                     <ShoppingCart className="mr-2 h-5 w-5" />
                     Venta Actual
@@ -144,14 +144,15 @@ export default function POS() {
                 {isMobile && (
                     <button
                         onClick={() => setIsCartOpen(false)}
-                        className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        className="touch-target -my-2 -mr-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                        aria-label="Cerrar carrito"
                     >
                         <X className="h-5 w-5" />
                     </button>
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 overscroll-contain">
                 {cart.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400">
                         <ShoppingCart className="h-12 w-12 mb-2 opacity-50" />
@@ -164,32 +165,38 @@ export default function POS() {
                                 <h4 className="text-sm font-medium text-gray-900 truncate" title={item.name}>{item.name}</h4>
                                 <p className="text-sm text-gray-500">${Number(item.price).toFixed(2)} c/u</p>
                             </div>
-                            <div className="flex items-center space-x-1 sm:space-x-2 ml-2">
+                            <div className="flex items-center gap-1 sm:gap-2 ml-2 shrink-0">
                                 <button
                                     onClick={() => updateQty(item.id, -1)}
-                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded touch-manipulation"
+                                    className="touch-target rounded-lg text-gray-600 bg-gray-50 active:bg-gray-200 hover:bg-gray-100 touch-manipulation"
+                                    aria-label={`Quitar una unidad de ${item.name}`}
                                 >
-                                    <Minus className="h-4 w-4" />
+                                    <Minus className="h-5 w-5" />
                                 </button>
                                 <input
                                     type="number"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     min="1"
                                     max={products.find(p => p.id === item.id)?.stock || 999}
                                     value={item.qty}
                                     onChange={(e) => setManualQty(item.id, e.target.value)}
-                                    className="w-14 text-center border border-gray-300 rounded px-1 py-1 text-sm font-medium"
+                                    aria-label={`Cantidad de ${item.name}`}
+                                    className="w-14 text-center border border-gray-300 rounded-lg py-2 text-base font-semibold"
                                 />
                                 <button
                                     onClick={() => updateQty(item.id, 1)}
-                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded touch-manipulation"
+                                    className="touch-target rounded-lg text-gray-600 bg-gray-50 active:bg-gray-200 hover:bg-gray-100 touch-manipulation"
+                                    aria-label={`Añadir una unidad de ${item.name}`}
                                 >
-                                    <Plus className="h-4 w-4" />
+                                    <Plus className="h-5 w-5" />
                                 </button>
                                 <button
                                     onClick={() => removeFromCart(item.id)}
-                                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded ml-1 touch-manipulation"
+                                    className="touch-target rounded-lg text-red-600 bg-red-50 active:bg-red-200 hover:bg-red-100 touch-manipulation"
+                                    aria-label={`Eliminar ${item.name} del carrito`}
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-5 w-5" />
                                 </button>
                             </div>
                         </div>
@@ -197,27 +204,30 @@ export default function POS() {
                 )}
             </div>
 
-            <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
+            <div className="shrink-0 p-4 border-t border-gray-200 bg-gray-50 space-y-3 pb-safe">
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Referencia / Comentario (Opcional)</label>
+                    <label htmlFor="pos-reference" className="block text-xs font-medium text-gray-700 mb-1">Referencia / Comentario (Opcional)</label>
                     <input
+                        id="pos-reference"
                         type="text"
+                        autoComplete="off"
+                        enterKeyHint="done"
                         value={reference}
                         onChange={(e) => setReference(e.target.value)}
                         placeholder="ej. Cliente Juan, Mesa 5..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
 
                 <div className="flex justify-between items-center">
                     <span className="text-base font-medium text-gray-700">Subtotal</span>
-                    <span className="text-xl font-bold text-gray-900">${cartTotal.toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-gray-900">${cartTotal.toFixed(2)}</span>
                 </div>
 
                 <button
                     onClick={handleCheckout}
                     disabled={cart.length === 0 || processing}
-                    className={`w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white touch-manipulation ${cart.length === 0 || processing
+                    className={`w-full flex items-center justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-bold text-white touch-manipulation ${cart.length === 0 || processing
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
                         }`}
@@ -239,7 +249,7 @@ export default function POS() {
     );
 
     return (
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-7rem)] md:h-[calc(100vh-4rem)] -m-4 sm:-m-6 md:-m-8">
+        <div className="flex flex-col lg:flex-row h-[calc(100vh-7rem)] h-[calc(100dvh-7rem)] md:h-[calc(100vh-4rem)] md:h-[calc(100dvh-4rem)] -m-4 sm:-m-6 md:-m-8">
             <ReceiptPrinter ref={printerRef} />
 
             {/* Product Grid Area */}
@@ -250,7 +260,10 @@ export default function POS() {
                         <Search className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                        type="text"
+                        type="search"
+                        autoComplete="off"
+                        enterKeyHint="search"
+                        aria-label="Buscar producto por nombre o SKU"
                         className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-base"
                         placeholder="Buscar por nombre o SKU..."
                         value={searchTerm}
@@ -298,7 +311,8 @@ export default function POS() {
             {/* Mobile Cart Button */}
             <button
                 onClick={() => setIsCartOpen(true)}
-                className="lg:hidden fixed bottom-4 right-4 z-30 bg-blue-600 text-white px-5 py-4 rounded-full shadow-lg flex items-center space-x-2 active:scale-95 touch-manipulation"
+                className="lg:hidden fixed bottom-safe right-4 z-30 bg-blue-600 text-white px-5 py-4 rounded-full shadow-lg flex items-center space-x-2 active:scale-95 touch-manipulation"
+                aria-label={`Abrir carrito, ${cartItemCount} artículos`}
             >
                 <ShoppingCart className="h-6 w-6" />
                 {cartItemCount > 0 && (
@@ -316,11 +330,14 @@ export default function POS() {
 
                     {/* Cart Panel */}
                     <div
-                        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl max-h-[85vh] flex flex-col"
+                        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl max-h-[90dvh] flex flex-col overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Carrito de venta"
                     >
                         {/* Drag Handle */}
-                        <div className="flex justify-center py-2">
+                        <div className="flex justify-center py-2 shrink-0">
                             <div className="w-12 h-1 bg-gray-300 rounded-full" />
                         </div>
                         <CartContent isMobile={true} />

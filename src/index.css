@@ -9,6 +9,33 @@
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased;
     font-family: 'Plus Jakarta Sans', sans-serif;
+    /* Prevent horizontal overflow on small screens */
+    overflow-x: hidden;
+  }
+
+  /*
+   * iOS Safari auto-zooms the viewport when a form control is focused and its
+   * computed font-size is below 16px. Forcing 16px on touch devices prevents
+   * the layout from jumping while typing (critical for the POS flow).
+   */
+  @media screen and (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Respect the OS "reduce motion" preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* Custom Scrollbar */
@@ -100,6 +127,23 @@
 
   .animate-delay-300 {
     animation-delay: 300ms;
+  }
+}
+
+@layer utilities {
+  /* Safe-area aware spacing for elements anchored to the bottom edge
+     (FABs, bottom sheets, sticky footers) on notched devices. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .bottom-safe {
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Guarantees the 48x48 CSS px minimum touch target (WCAG 2.2 AA). */
+  .touch-target {
+    @apply inline-flex items-center justify-center min-h-12 min-w-12;
   }
 }
 

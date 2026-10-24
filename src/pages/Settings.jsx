@@ -6,6 +6,7 @@ import { reindexTransactions } from "../lib/db";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { useRole } from "../hooks/useRole";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function Settings() {
     const [companyInfo, setCompanyInfo] = useState({ name: "", address: "", logoUrl: "" });
@@ -13,6 +14,9 @@ export default function Settings() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("company");
     const [isReindexing, setIsReindexing] = useState(false);
+    const [userToDelete, setUserToDelete] = useState(null);
+    const [deletingUser, setDeletingUser] = useState(false);
+    const [showReindexConfirm, setShowReindexConfirm] = useState(false);
     const { addToast } = useToast();
     const { user } = useAuth();
     const { isAdmin } = useRole();
@@ -88,18 +92,25 @@ export default function Settings() {
     };
 
     const handleDeleteUser = async (userId) => {
-        if (!window.confirm("¿Estás seguro? Este usuario perderá el acceso.")) return;
+        setUserToDelete(userId);
+    };
+
+    const confirmDeleteUser = async () => {
+        if (!userToDelete) return;
+        setDeletingUser(true);
         try {
-            await deleteDoc(doc(db, "users", userId));
-            setUsersList(prev => prev.filter(u => u.id !== userId));
+            await deleteDoc(doc(db, "users", userToDelete));
+            setUsersList(prev => prev.filter(u => u.id !== userToDelete));
             addToast("Usuario eliminado del sistema.");
+            setUserToDelete(null);
         } catch (error) {
             addToast("Error al eliminar usuario: " + error.message, "error");
+        } finally {
+            setDeletingUser(false);
         }
     };
 
     const handleReindex = async () => {
-        if (!window.confirm("Esta acción re-indexará TODAS las entradas y salidas cronológicamente empezando desde 0001. ¿Deseas continuar?")) return;
 
         setIsReindexing(true);
         try {
@@ -109,6 +120,7 @@ export default function Settings() {
             addToast("Error en la migración: " + error.message, "error");
         } finally {
             setIsReindexing(false);
+            setShowReindexConfirm(false);
         }
     };
 
@@ -293,7 +305,7 @@ export default function Settings() {
                                     Elimina las referencias actuales de todas las Entradas y Salidas y asigna nuevos números secuenciales (0001, 0002...) basados en la fecha de creación.
                                 </p>
                                 <button
-                                    onClick={handleReindex}
+                                    onClick={() => setShowReindexConfirm(true)}
                                     disabled={isReindexing}
                                     className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 touch-manipulation font-bold"
                                 >
@@ -305,6 +317,26 @@ export default function Settings() {
                     )}
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={!!userToDelete}
+                title="Eliminar usuario"
+                message="Este usuario perderá el acceso al sistema. El historial de ventas que registró se conserva."
+                confirmLabel="Sí, eliminar"
+                loading={deletingUser}
+                onConfirm={confirmDeleteUser}
+                onCancel={() => !deletingUser && setUserToDelete(null)}
+            />
+
+            <ConfirmDialog
+                open={showReindexConfirm}
+                title="Re-indexar todas las transacciones"
+                message={"Esta acción re-indexará TODAS las entradas y salidas cronológicamente empezando desde 0001.\n\n¿Deseas continuar?"}
+                confirmLabel="Sí, re-indexar"
+                loading={isReindexing}
+                onConfirm={handleReindex}
+                onCancel={() => !isReindexing && setShowReindexConfirm(false)}
+            />
         </div>
     );
 }

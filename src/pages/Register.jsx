@@ -41,7 +41,7 @@ export default function Register() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-primary-900 to-slate-900 relative overflow-hidden">
+        <div className="flex items-center justify-center min-h-screen min-h-[100dvh] bg-gradient-to-br from-slate-900 via-primary-900 to-slate-900 relative overflow-hidden">
             {/* Animated Background Decorations */}
             <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent-500/30 blur-[150px] rounded-full animate-float"></div>
             <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-500/30 blur-[150px] rounded-full animate-float" style={{ animationDelay: '1s' }}></div>
