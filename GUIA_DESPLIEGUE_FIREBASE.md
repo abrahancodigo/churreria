@@ -5,7 +5,7 @@ Sigue estos pasos para publicar tu Sistema de Inventario y POS en internet.
 ## 1. Prerrequisitos
 Asegúrate de estar en la carpeta del proyecto:
 ```bash
-cd web-pos
+cd churreria
 ```
 
 ## 2. Instalar Herramientas de Firebase (si no las tienes)

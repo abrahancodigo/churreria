@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useCompany } from "../context/CompanyContext";
 import { useRole } from "../hooks/useRole";
+import { formatCurrency } from "../lib/formatters";
 import ConfirmDialog from "../components/ConfirmDialog";
 import * as XLSX from "xlsx";
 
@@ -252,9 +253,9 @@ export default function Transactions() {
     };
 
     const getTypeBadgeClass = (type) => {
-        if (type === 'sale') return 'bg-green-100 text-green-800';
-        if (type === 'entry') return 'bg-blue-100 text-blue-800';
-        return 'bg-yellow-100 text-yellow-800';
+        if (type === 'sale') return 'badge-success';
+        if (type === 'entry') return 'badge-primary';
+        return 'badge-warning';
     };
 
     // Extract sucursal from field or notes
@@ -313,7 +314,7 @@ export default function Transactions() {
     };
 
     return (
-        <div>
+        <div className="space-y-6">
             <style>{`
                 @media print {
                     body * {
@@ -395,106 +396,122 @@ export default function Transactions() {
                 }
             `}</style>
 
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Historial de Transacciones</h1>
+            {/* Header */}
+            <header className="page-header">
+                <div>
+                    <h1 className="page-title">Historial de Transacciones</h1>
+                    <p className="page-subtitle" aria-hidden="true">&nbsp;</p>
+                </div>
+                <button
+                    onClick={exportToExcel}
+                    className="btn-primary self-start sm:self-auto"
+                    title="Exportar a Excel"
+                >
+                    <FileDown className="h-4 w-4" />
+                    Exportar
+                </button>
+            </header>
 
-            <div className="mb-4 flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-gray-400" />
-                    </div>
+            {/* Search */}
+            <div className="surface p-3 sm:p-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400 pointer-events-none" />
                     <input
-                        type="text"
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-base"
+                        type="search"
+                        className="input-field pl-9"
                         placeholder="Buscar por ID, producto, referencia, sucursal, notas..."
+                        aria-label="Buscar transacciones"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <button
-                    onClick={exportToExcel}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors font-medium touch-manipulation"
-                    title="Exportar a Excel"
-                >
-                    <FileDown className="h-5 w-5" />
-                    <span className="hidden sm:inline">Exportar</span>
-                </button>
             </div>
 
             {/* Desktop Table View */}
-            <div className="hidden md:block bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sucursal</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Productos</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredTransactions.map((tx) => (
-                            <tr key={tx.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), 'dd/MM/yyyy HH:mm') : '--'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeBadgeClass(tx.type)}`}>
-                                        {getTypeLabel(tx.type)}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                                    {tx.reference || '--'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                    {getSucursal(tx) || '--'}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    <div className="max-w-xs truncate">
-                                        {tx.items?.length || 0} producto(s)
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                                    ${getUpdatedTotal(tx).toFixed(2)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                    <button
-                                        onClick={() => handleViewTransaction(tx)}
-                                        className="text-blue-600 hover:text-blue-900 inline-flex items-center"
-                                        title="Ver Detalles"
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleEdit(tx)}
-                                        disabled={!isAdmin}
-                                        className={`inline-flex items-center ${isAdmin ? 'text-indigo-600 hover:text-indigo-900' : 'text-gray-300 cursor-not-allowed'}`}
-                                        title={!isAdmin ? "Solo administradores" : "Editar Transacción"}
-                                    >
-                                        <Edit2 className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(tx)}
-                                        disabled={deleting === tx.id}
-                                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
-                                        title="Eliminar Transacción"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        {filteredTransactions.length === 0 && (
+            <div className="table-shell hidden md:block">
+                <div className="table-scroll custom-scrollbar max-h-[calc(100dvh-260px)] overflow-y-auto">
+                    <table className="min-w-full">
+                        <thead className="table-head sticky top-0 z-10">
                             <tr>
-                                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                                    No se encontraron transacciones.
-                                </td>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Referencia</th>
+                                <th>Sucursal</th>
+                                <th>Productos</th>
+                                <th className="text-right">Total</th>
+                                <th className="text-right">Acciones</th>
                             </tr>
-                        )}
-                    </tbody>
+                        </thead>
+                        <tbody className="table-body">
+                            {filteredTransactions.map((tx) => (
+                                <tr key={tx.id}>
+                                    <td className="whitespace-nowrap text-ink-500 tabular-nums">
+                                        {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), 'dd/MM/yyyy HH:mm') : '--'}
+                                    </td>
+                                    <td className="whitespace-nowrap">
+                                        <span className={getTypeBadgeClass(tx.type)}>
+                                            {getTypeLabel(tx.type)}
+                                        </span>
+                                    </td>
+                                    <td className="whitespace-nowrap font-semibold text-primary-700">
+                                        {tx.reference || '--'}
+                                    </td>
+                                    <td className="whitespace-nowrap text-ink-600">
+                                        {getSucursal(tx) || '--'}
+                                    </td>
+                                    <td className="text-ink-500">
+                                        <div className="max-w-xs truncate">
+                                            {tx.items?.length || 0} producto(s)
+                                        </div>
+                                    </td>
+                                    <td className="whitespace-nowrap text-right font-semibold text-ink-900 tabular-nums">
+                                        {formatCurrency(getUpdatedTotal(tx))}
+                                    </td>
+                                    <td className="whitespace-nowrap text-right">
+                                        <div className="inline-flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleViewTransaction(tx)}
+                                                className="btn-icon h-9 w-9 touch-target text-ink-500 hover:text-primary-700 hover:bg-primary-50 transition-colors"
+                                                title="Ver Detalles"
+                                                aria-label="Ver Detalles"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleEdit(tx)}
+                                                disabled={!isAdmin}
+                                                className="btn-icon h-9 w-9 touch-target text-ink-500 hover:text-primary-700 hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                title={!isAdmin ? "Solo administradores" : "Editar Transacción"}
+                                                aria-label="Editar Transacción"
+                                            >
+                                                <Edit2 className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(tx)}
+                                                disabled={deleting === tx.id}
+                                                className="btn-icon h-9 w-9 touch-target text-danger-600 hover:text-danger-700 hover:bg-danger-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                title="Eliminar Transacción"
+                                                aria-label="Eliminar Transacción"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {filteredTransactions.length === 0 && (
+                                <tr>
+                                    <td colSpan="7">
+                                        <div className="empty-state">
+                                            <div className="empty-icon">
+                                                <Search className="h-5 w-5 text-ink-400" />
+                                            </div>
+                                            <p className="text-sm font-medium text-ink-700">No se encontraron transacciones.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -502,88 +519,94 @@ export default function Transactions() {
             {/* Mobile Card View */}
             <div className="md:hidden space-y-3">
                 {filteredTransactions.map((tx) => (
-                    <div key={tx.id} className="bg-white rounded-lg shadow p-4 border border-gray-100">
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeBadgeClass(tx.type)}`}>
-                                    {getTypeLabel(tx.type)}
-                                </span>
-                            </div>
-                            <span className="text-sm text-gray-500">
+                    <div key={tx.id} className="surface p-4">
+                        <div className="flex justify-between items-start gap-3 mb-2">
+                            <span className={getTypeBadgeClass(tx.type)}>
+                                {getTypeLabel(tx.type)}
+                            </span>
+                            <span className="text-sm text-ink-500 whitespace-nowrap tabular-nums">
                                 {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), 'dd/MM HH:mm') : '--'}
                             </span>
                         </div>
 
                         {tx.reference && (
-                            <p className="text-sm font-medium text-blue-600 mb-1 truncate">{tx.reference}</p>
+                            <p className="text-sm font-semibold text-primary-700 mb-1 truncate">{tx.reference}</p>
                         )}
 
                         {getSucursal(tx) && (
-                            <p className="text-sm text-gray-600 mb-1">📍 {getSucursal(tx)}</p>
+                            <p className="text-sm text-ink-600 mb-1">📍 {getSucursal(tx)}</p>
                         )}
 
-                        <div className="flex justify-between items-center mt-3">
+                        <div className="flex justify-between items-center mt-3 gap-3">
                             <div>
-                                <p className="text-lg font-bold text-gray-900">${getUpdatedTotal(tx).toFixed(2)}</p>
-                                <p className="text-xs text-gray-500">{tx.items?.length || 0} producto(s)</p>
+                                <p className="text-lg font-bold text-ink-900 tabular-nums">{formatCurrency(getUpdatedTotal(tx))}</p>
+                                <p className="text-xs text-ink-500">{tx.items?.length || 0} producto(s)</p>
                             </div>
-                            <div className="flex space-x-2">
+                            <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => handleViewTransaction(tx)}
-                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-md touch-manipulation"
+                                    className="btn-icon h-9 w-9 touch-target text-ink-500 hover:text-primary-700 hover:bg-primary-50 transition-colors"
                                     title="Ver Detalles"
+                                    aria-label="Ver Detalles"
                                 >
-                                    <Eye className="h-5 w-5" />
+                                    <Eye className="h-4 w-4" />
                                 </button>
                                 <button
                                     onClick={() => handleEdit(tx)}
                                     disabled={!isAdmin}
-                                    className={`p-2 rounded-md touch-manipulation ${isAdmin ? 'text-indigo-600 hover:bg-indigo-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                    className="btn-icon h-9 w-9 touch-target text-ink-500 hover:text-primary-700 hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                     title={!isAdmin ? "Solo administradores" : "Editar"}
+                                    aria-label="Editar"
                                 >
-                                    <Edit2 className="h-5 w-5" />
+                                    <Edit2 className="h-4 w-4" />
                                 </button>
                                 <button
                                     onClick={() => handleDelete(tx)}
                                     disabled={deleting === tx.id}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-md disabled:opacity-50 touch-manipulation"
+                                    className="btn-icon h-9 w-9 touch-target text-danger-600 hover:text-danger-700 hover:bg-danger-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                     title="Eliminar"
+                                    aria-label="Eliminar"
                                 >
-                                    <Trash2 className="h-5 w-5" />
+                                    <Trash2 className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
                 ))}
                 {filteredTransactions.length === 0 && (
-                    <div className="text-center py-10 text-gray-500">
-                        No se encontraron transacciones.
+                    <div className="surface empty-state">
+                        <div className="empty-icon">
+                            <Search className="h-5 w-5 text-ink-400" />
+                        </div>
+                        <p className="text-sm font-medium text-ink-700">No se encontraron transacciones.</p>
                     </div>
                 )}
             </div>
 
             {/* Detail Modal */}
             {viewingTransaction && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-                    <div className="bg-white w-full sm:rounded-lg shadow-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-lg">
-                        {/* Mobile drag handle */}
-                        <div className="sm:hidden flex justify-center py-2">
-                            <div className="w-12 h-1 bg-gray-300 rounded-full" />
-                        </div>
-
-                        <div className="flex justify-between items-center p-4 sm:p-6 border-b no-print">
-                            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/60 p-4 animate-fade-in">
+                    <div
+                        className="modal-panel w-full max-w-2xl max-h-[90dvh] overflow-y-auto animate-scale-in"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Detalles de ${getTypeLabel(viewingTransaction.type)}`}
+                    >
+                        <div className="sticky top-0 z-10 bg-surface border-b border-ink-200/70 px-6 py-4 flex items-center justify-between gap-4 no-print">
+                            <h2 className="section-title">
                                 Detalles de {getTypeLabel(viewingTransaction.type)}
                             </h2>
                             <button
                                 onClick={() => setViewingTransaction(null)}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
+                                className="btn-icon h-9 w-9 -mr-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors"
+                                title="Cerrar"
+                                aria-label="Cerrar"
                             >
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <div className="p-4 sm:p-6 space-y-4 print-content">
+                        <div className="p-6 space-y-5 print-content">
                             <div className="print-header hidden print:flex">
                                 {companyInfo.logoUrl && (
                                     <img src={companyInfo.logoUrl} alt="Logo" className="print-logo" />
@@ -594,104 +617,106 @@ export default function Transactions() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500">Referencia / Factura</label>
-                                    <p className="mt-1 text-base sm:text-lg font-semibold text-blue-600">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="surface-muted p-4">
+                                    <label className="input-label">Referencia / Factura</label>
+                                    <p className="text-base sm:text-lg font-semibold text-primary-700 break-words">
                                         {viewingTransaction.reference || 'Sin referencia'}
                                     </p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500">Fecha y Hora</label>
-                                    <p className="mt-1 text-base sm:text-lg">
+                                <div className="surface-muted p-4">
+                                    <label className="input-label">Fecha y Hora</label>
+                                    <p className="text-base sm:text-lg font-semibold text-ink-900 tabular-nums">
                                         {viewingTransaction.timestamp?.toDate ?
                                             format(viewingTransaction.timestamp.toDate(), 'dd/MM/yyyy HH:mm:ss') : '--'}
                                     </p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500">Tipo</label>
+                                <div className="surface-muted p-4">
+                                    <label className="input-label">Tipo</label>
                                     <p className="mt-1">
-                                        <span className={`px-3 py-1 inline-flex text-sm font-semibold rounded-full ${getTypeBadgeClass(viewingTransaction.type)}`}>
+                                        <span className={getTypeBadgeClass(viewingTransaction.type)}>
                                             {getTypeLabel(viewingTransaction.type)}
                                         </span>
                                     </p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500">
+                                <div className="surface-muted p-4">
+                                    <label className="input-label">
                                         {(viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit') ? 'Costo Total (Actual)' : 'Total'}
                                     </label>
-                                    <p className="mt-1 text-lg font-bold text-gray-900">
-                                        ${(viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit')
-                                            ? enrichedItems.reduce((acc, item) => acc + ((item.currentCost !== null ? item.currentCost : Number(item.cost || 0)) * Number(item.quantity)), 0).toFixed(2)
-                                            : enrichedItems.reduce((acc, item) => acc + ((item.currentPrice !== null ? item.currentPrice : Number(item.price || 0)) * Number(item.quantity)), 0).toFixed(2)
-                                        }
+                                    <p className="text-lg font-bold text-ink-900 tabular-nums">
+                                        {formatCurrency((viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit')
+                                            ? enrichedItems.reduce((acc, item) => acc + ((item.currentCost !== null ? item.currentCost : Number(item.cost || 0)) * Number(item.quantity)), 0)
+                                            : enrichedItems.reduce((acc, item) => acc + ((item.currentPrice !== null ? item.currentPrice : Number(item.price || 0)) * Number(item.quantity)), 0)
+                                        )}
                                     </p>
                                     {(viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit') && (
-                                        <p className="text-xs text-gray-400">
-                                            Costo original: ${viewingTransaction.items?.reduce((acc, item) => acc + (Number(item.cost || 0) * Number(item.quantity)), 0).toFixed(2)}
+                                        <p className="text-xs text-ink-400 mt-1 tabular-nums">
+                                            Costo original: {formatCurrency(viewingTransaction.items?.reduce((acc, item) => acc + (Number(item.cost || 0) * Number(item.quantity)), 0))}
                                         </p>
                                     )}
                                 </div>
                             </div>
 
                             {viewingTransaction.notes && (
-                                <div className="bg-gray-50 p-3 rounded-md">
-                                    <label className="block text-sm font-medium text-gray-500">Notas / Sucursal</label>
-                                    <p className="mt-1 text-gray-700">{viewingTransaction.notes}</p>
+                                <div className="surface-muted p-4">
+                                    <label className="input-label">Notas / Sucursal</label>
+                                    <p className="text-sm text-ink-700 whitespace-pre-line">{viewingTransaction.notes}</p>
                                 </div>
                             )}
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-2">
+                                <label className="input-label mb-2">
                                     Productos {(viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit') ? '(Costos Actualizados)' : '(Precios Actualizados)'}
                                 </label>
-                                <div className="border rounded-lg overflow-hidden">
+                                <div className="table-shell">
                                     {/* Desktop Table */}
-                                    <table className="hidden sm:table min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                                                    {(viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit') ? 'Costo Unit.' : 'Precio Unit.'}
-                                                </th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {enrichedItems.map((item, idx) => {
-                                                const isMovement = viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit';
-                                                const unitValue = isMovement
-                                                    ? (item.currentCost !== null ? item.currentCost : Number(item.cost || 0))
-                                                    : (item.currentPrice !== null ? item.currentPrice : Number(item.price || 0));
-                                                const valueChanged = isMovement ? item.costChanged : item.priceChanged;
-                                                const originalValue = isMovement ? Number(item.cost || 0) : Number(item.price || 0);
+                                    <div className="hidden sm:block table-scroll">
+                                        <table className="min-w-full">
+                                            <thead className="table-head sticky top-0 z-10">
+                                                <tr>
+                                                    <th>Producto</th>
+                                                    <th className="text-right">Cantidad</th>
+                                                    <th className="text-right">
+                                                        {(viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit') ? 'Costo Unit.' : 'Precio Unit.'}
+                                                    </th>
+                                                    <th className="text-right">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="table-body">
+                                                {enrichedItems.map((item, idx) => {
+                                                    const isMovement = viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit';
+                                                    const unitValue = isMovement
+                                                        ? (item.currentCost !== null ? item.currentCost : Number(item.cost || 0))
+                                                        : (item.currentPrice !== null ? item.currentPrice : Number(item.price || 0));
+                                                    const valueChanged = isMovement ? item.costChanged : item.priceChanged;
+                                                    const originalValue = isMovement ? Number(item.cost || 0) : Number(item.price || 0);
 
-                                                return (
-                                                    <tr key={idx}>
-                                                        <td className="px-4 py-2 text-sm text-gray-900">{item.name}</td>
-                                                        <td className="px-4 py-2 text-sm text-right text-gray-700">{item.quantity}</td>
-                                                        <td className="px-4 py-2 text-sm text-right">
-                                                            <span className={valueChanged ? (isMovement ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold') : 'text-gray-700'}>
-                                                                ${unitValue.toFixed(2)}
-                                                            </span>
-                                                            {valueChanged && (
-                                                                <span className="text-xs text-gray-400 line-through ml-1">
-                                                                    ${originalValue.toFixed(2)}
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td className="font-medium text-ink-900">{item.name}</td>
+                                                            <td className="text-right text-ink-700 tabular-nums">{item.quantity}</td>
+                                                            <td className="text-right tabular-nums">
+                                                                <span className={valueChanged ? (isMovement ? 'text-warning-700 font-semibold' : 'text-success-700 font-semibold') : 'text-ink-700'}>
+                                                                    {formatCurrency(unitValue)}
                                                                 </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-2 text-sm text-right font-medium text-gray-900">
-                                                            ${(unitValue * Number(item.quantity)).toFixed(2)}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                                {valueChanged && (
+                                                                    <span className="text-xs text-ink-400 line-through ml-1">
+                                                                        {formatCurrency(originalValue)}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="text-right font-semibold text-ink-900 tabular-nums">
+                                                                {formatCurrency(unitValue * Number(item.quantity))}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
 
                                     {/* Mobile List */}
-                                    <div className="sm:hidden divide-y divide-gray-200">
+                                    <div className="sm:hidden divide-y divide-ink-100">
                                         {enrichedItems.map((item, idx) => {
                                             const isMovement = viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit';
                                             const unitValue = isMovement
@@ -702,20 +727,20 @@ export default function Transactions() {
 
                                             return (
                                                 <div key={idx} className="p-3">
-                                                    <div className="flex justify-between items-start">
-                                                        <p className="font-medium text-gray-900">{item.name}</p>
-                                                        <span className="font-bold text-gray-900">
-                                                            ${(unitValue * Number(item.quantity)).toFixed(2)}
+                                                    <div className="flex justify-between items-start gap-3">
+                                                        <p className="font-medium text-ink-900">{item.name}</p>
+                                                        <span className="font-bold text-ink-900 whitespace-nowrap tabular-nums">
+                                                            {formatCurrency(unitValue * Number(item.quantity))}
                                                         </span>
                                                     </div>
-                                                    <div className="text-sm text-gray-500 mt-1">
+                                                    <div className="text-sm text-ink-500 mt-1 tabular-nums">
                                                         {item.quantity} x
-                                                        <span className={valueChanged ? (isMovement ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold') : ''}>
-                                                            ${unitValue.toFixed(2)}
+                                                        <span className={valueChanged ? (isMovement ? 'text-warning-700 font-semibold' : 'text-success-700 font-semibold') : ''}>
+                                                            {formatCurrency(unitValue)}
                                                         </span>
                                                         {valueChanged && (
-                                                            <span className="text-xs text-gray-400 line-through ml-1">
-                                                                (antes: ${originalValue.toFixed(2)})
+                                                            <span className="text-xs text-ink-400 line-through ml-1">
+                                                                (antes: {formatCurrency(originalValue)})
                                                             </span>
                                                         )}
                                                     </div>
@@ -746,25 +771,25 @@ export default function Transactions() {
                                 </div>
                             )}
 
-                            <div className="pt-4 border-t">
+                            <div className="divider pt-4">
                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                                    <span className="text-sm text-gray-500">ID de Transacción:</span>
-                                    <span className="text-xs font-mono text-gray-400 truncate">{viewingTransaction.id}</span>
+                                    <span className="text-sm text-ink-500">ID de Transacción:</span>
+                                    <span className="text-xs font-mono text-ink-400 truncate">{viewingTransaction.id}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-4 sm:p-6 border-t bg-gray-50 flex flex-col sm:flex-row gap-3 no-print">
+                        <div className="divider bg-ink-50/70 px-6 py-4 flex flex-col sm:flex-row sm:justify-end gap-3 no-print">
                             <button
                                 onClick={handlePrint}
-                                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center touch-manipulation"
+                                className="btn-secondary flex-1 sm:flex-none"
                             >
-                                <Printer className="h-4 w-4 mr-2" />
+                                <Printer className="h-4 w-4" />
                                 Imprimir
                             </button>
                             <button
                                 onClick={() => setViewingTransaction(null)}
-                                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 touch-manipulation"
+                                className="btn-primary flex-1 sm:flex-none"
                             >
                                 Cerrar
                             </button>
@@ -775,34 +800,37 @@ export default function Transactions() {
 
             {/* Edit Transaction Modal */}
             {editingTransaction && editFormData && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-                    <div className="bg-white w-full sm:rounded-lg shadow-xl sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-lg">
-                        {/* Mobile drag handle */}
-                        <div className="sm:hidden flex justify-center py-2">
-                            <div className="w-12 h-1 bg-gray-300 rounded-full" />
-                        </div>
-
-                        <div className="flex justify-between items-center p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
-                            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/60 p-4 animate-fade-in">
+                    <div
+                        className="modal-panel w-full max-w-3xl max-h-[90dvh] overflow-y-auto animate-scale-in"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Editar ${getTypeLabel(editFormData.type)}`}
+                    >
+                        <div className="sticky top-0 z-10 bg-surface border-b border-ink-200/70 px-6 py-4 flex items-center justify-between gap-4">
+                            <h2 className="section-title">
                                 Editar {getTypeLabel(editFormData.type)}
                             </h2>
                             <button
                                 onClick={handleCloseEditModal}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
+                                className="btn-icon h-9 w-9 -mr-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors"
+                                title="Cerrar"
+                                aria-label="Cerrar"
                             >
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <div className="p-4 sm:p-6 space-y-6">
+                        <div className="p-6 space-y-6">
                             {/* Información básica */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Movimiento</label>
+                                    <label htmlFor="edit-type" className="input-label">Tipo de Movimiento</label>
                                     <select
+                                        id="edit-type"
                                         value={editFormData.type}
                                         onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        className="input-field"
                                         disabled={editFormData.type === 'sale'}
                                     >
                                         <option value="entry">Entrada</option>
@@ -811,30 +839,33 @@ export default function Transactions() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                                    <label htmlFor="edit-date" className="input-label">Fecha</label>
                                     <input
+                                        id="edit-date"
                                         type="date"
                                         value={editFormData.date}
                                         onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        className="input-field"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                                    <label htmlFor="edit-time" className="input-label">Hora</label>
                                     <input
+                                        id="edit-time"
                                         type="time"
                                         value={editFormData.time}
                                         onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        className="input-field"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Referencia *</label>
+                                    <label htmlFor="edit-reference" className="input-label">Referencia *</label>
                                     <input
+                                        id="edit-reference"
                                         type="text"
                                         value={editFormData.reference}
                                         onChange={(e) => setEditFormData({ ...editFormData, reference: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        className="input-field"
                                         placeholder="ej. FAC-1234"
                                     />
                                 </div>
@@ -843,12 +874,13 @@ export default function Transactions() {
                             {/* Sucursal para salidas */}
                             {editFormData.type === 'exit' && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sucursal Destino *</label>
+                                    <label htmlFor="edit-sucursal" className="input-label">Sucursal Destino *</label>
                                     <input
+                                        id="edit-sucursal"
                                         type="text"
                                         value={editFormData.sucursal || ''}
                                         onChange={(e) => setEditFormData({ ...editFormData, sucursal: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        className="input-field"
                                         placeholder="ej. Sucursal Centro"
                                     />
                                 </div>
@@ -856,11 +888,12 @@ export default function Transactions() {
 
                             {/* Notas */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                                <label htmlFor="edit-notes" className="input-label">Notas</label>
                                 <textarea
+                                    id="edit-notes"
                                     value={editFormData.notes || ''}
                                     onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                    className="input-field"
                                     rows="2"
                                     placeholder="Comentarios adicionales..."
                                 />
@@ -868,93 +901,97 @@ export default function Transactions() {
 
                             {/* Items */}
                             <div>
-                                <label className="block text-sm font-bold text-gray-900 mb-2">Productos</label>
-                                <div className="border rounded-md overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-24">Cantidad</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-28">Precio</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-28">Costo</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-20">Total</th>
-                                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase w-16">Acción</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {editFormData.items.map((item, index) => (
-                                                <tr key={index}>
-                                                    <td className="px-4 py-3 text-sm text-gray-900">{item.name}</td>
-                                                    <td className="px-4 py-3">
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            value={item.quantity}
-                                                            onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
-                                                            className="w-full text-right px-2 py-1 border rounded text-sm"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={item.price || 0}
-                                                            onChange={(e) => handleUpdateItemPrice(index, e.target.value)}
-                                                            className="w-full text-right px-2 py-1 border rounded text-sm"
-                                                            disabled={editFormData.type === 'entry' || editFormData.type === 'exit'}
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={item.cost || 0}
-                                                            onChange={(e) => handleUpdateItemCost(index, e.target.value)}
-                                                            className="w-full text-right px-2 py-1 border rounded text-sm"
-                                                            disabled={editFormData.type === 'sale'}
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-sm font-medium">
-                                                        ${((editFormData.type === 'entry' || editFormData.type === 'exit' ? item.cost : item.price) * item.quantity).toFixed(2)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        <button
-                                                            onClick={() => handleRemoveItem(index)}
-                                                            className="text-red-500 hover:text-red-700 p-1"
-                                                            title="Eliminar producto"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
-                                                    </td>
+                                <label className="input-label mb-2">Productos</label>
+                                <div className="table-shell">
+                                    <div className="table-scroll">
+                                        <table className="min-w-full">
+                                            <thead className="table-head sticky top-0 z-10">
+                                                <tr>
+                                                    <th>Producto</th>
+                                                    <th className="text-right">Cantidad</th>
+                                                    <th className="text-right">Precio</th>
+                                                    <th className="text-right">Costo</th>
+                                                    <th className="text-right">Total</th>
+                                                    <th className="text-center">Acción</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="table-body">
+                                                {editFormData.items.map((item, index) => (
+                                                    <tr key={index}>
+                                                        <td className="font-medium text-ink-900">{item.name}</td>
+                                                        <td>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={item.quantity}
+                                                                onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
+                                                                className="input-field px-2 py-1.5 text-right tabular-nums"
+                                                                aria-label={`Cantidad de ${item.name}`}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                value={item.price || 0}
+                                                                onChange={(e) => handleUpdateItemPrice(index, e.target.value)}
+                                                                className="input-field px-2 py-1.5 text-right tabular-nums"
+                                                                disabled={editFormData.type === 'entry' || editFormData.type === 'exit'}
+                                                                aria-label={`Precio de ${item.name}`}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                value={item.cost || 0}
+                                                                onChange={(e) => handleUpdateItemCost(index, e.target.value)}
+                                                                className="input-field px-2 py-1.5 text-right tabular-nums"
+                                                                disabled={editFormData.type === 'sale'}
+                                                                aria-label={`Costo de ${item.name}`}
+                                                            />
+                                                        </td>
+                                                        <td className="text-right font-semibold text-ink-900 tabular-nums">
+                                                            {formatCurrency((editFormData.type === 'entry' || editFormData.type === 'exit' ? item.cost : item.price) * item.quantity)}
+                                                        </td>
+                                                        <td className="text-center">
+                                                            <button
+                                                                onClick={() => handleRemoveItem(index)}
+                                                                className="btn-icon h-9 w-9 text-danger-600 hover:text-danger-700 hover:bg-danger-50 transition-colors"
+                                                                title="Eliminar producto"
+                                                                aria-label={`Eliminar ${item.name}`}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Total */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-lg font-bold text-gray-900">Total</span>
-                                    <span className="text-2xl font-black text-gray-900">
-                                        ${(editFormData.type === 'entry' || editFormData.type === 'exit'
+                            <div className="surface-muted p-4">
+                                <div className="flex justify-between items-center gap-4">
+                                    <span className="text-lg font-bold text-ink-900">Total</span>
+                                    <span className="text-2xl font-bold text-ink-900 tabular-nums">
+                                        {formatCurrency(editFormData.type === 'entry' || editFormData.type === 'exit'
                                             ? editFormData.items.reduce((acc, item) => acc + (Number(item.cost || 0) * Number(item.quantity)), 0)
                                             : editFormData.items.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity)), 0)
-                                        ).toFixed(2)}
+                                        )}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-4 sm:p-6 border-t bg-gray-50 flex flex-col sm:flex-row gap-3">
+                        <div className="divider bg-ink-50/70 px-6 py-4 flex flex-col sm:flex-row sm:justify-end gap-3">
                             <button
                                 onClick={handleCloseEditModal}
-                                className="flex-1 px-4 py-3 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 font-medium touch-manipulation"
+                                className="btn-secondary flex-1 sm:flex-none"
                                 disabled={savingEdit}
                             >
                                 Cancelar
@@ -962,16 +999,16 @@ export default function Transactions() {
                             <button
                                 onClick={handleSaveEdit}
                                 disabled={savingEdit}
-                                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="btn-primary flex-1 sm:flex-none"
                             >
                                 {savingEdit ? (
                                     <>
-                                        <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                                        <RefreshCw className="animate-spin h-4 w-4" />
                                         Guardando...
                                     </>
                                 ) : (
                                     <>
-                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        <RefreshCw className="h-4 w-4" />
                                         Actualizar Transacción
                                     </>
                                 )}

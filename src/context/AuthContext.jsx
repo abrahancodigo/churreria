@@ -10,6 +10,10 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const AuthContext = createContext();
 
+// El provider y su hook viven juntos a propósito: es el patrón idiomático de
+// React y mantiene el contexto encapsulado. La regla de fast-refresh solo
+// afecta a la recarga en desarrollo, no al comportamiento en producción.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {

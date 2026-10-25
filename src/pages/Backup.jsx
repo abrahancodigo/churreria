@@ -11,7 +11,7 @@ export default function Backup() {
     const [currentCollection, setCurrentCollection] = useState("");
     const [backupComplete, setBackupComplete] = useState(false);
     const [summary, setSummary] = useState({});
-    
+
     const { user } = useAuth();
     const { isAdmin } = useRole();
     const { addToast } = useToast();
@@ -41,15 +41,15 @@ export default function Backup() {
             setCurrentCollection(collectionName);
             const colRef = collection(db, collectionName);
             const snapshot = await getDocs(colRef);
-            
+
             const docs = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
-            
+
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             downloadJSON(docs, `${collectionName}_backup_${timestamp}.json`);
-            
+
             return docs.length;
         } catch (error) {
             console.error(`Error backing up ${collectionName}:`, error);
@@ -83,13 +83,13 @@ export default function Backup() {
                 collections: summary,
                 totalDocuments: Object.values(summary).reduce((a, b) => a + b, 0)
             };
-            
+
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             downloadJSON(summaryData, `backup_summary_${timestamp}.json`);
-            
+
             setSummary(summaryData);
             setBackupComplete(true);
-            addToast("✅ Backup completado exitosamente");
+            addToast("Backup completado exitosamente");
         } catch (error) {
             addToast("Error durante el backup: " + error.message, "error");
         } finally {
@@ -100,101 +100,115 @@ export default function Backup() {
 
     if (!isAdmin) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <Shield className="h-16 w-16 text-red-400 mb-4" />
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Acceso Denegado</h1>
-                <p className="text-gray-600">Solo administradores pueden acceder a esta página</p>
+            <div className="surface empty-state min-h-[60vh]">
+                <div className="empty-icon bg-danger-50">
+                    <Shield className="h-6 w-6 text-danger-600" />
+                </div>
+                <h1 className="badge-danger">Acceso denegado</h1>
+                <p className="text-sm text-ink-500 mt-2">Solo administradores pueden acceder a esta página.</p>
             </div>
         );
     }
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Backup de Base de Datos</h1>
-                <p className="text-gray-600">Exporta todos los datos de Firestore a archivos JSON locales</p>
-            </div>
+        <div className="max-w-4xl mx-auto space-y-6">
+            <header className="page-header">
+                <div>
+                    <h1 className="page-title">Backup de base de datos</h1>
+                    <p className="page-subtitle">Exporta todos los datos de Firestore a archivos JSON locales</p>
+                </div>
+            </header>
 
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-                <div className="flex items-start gap-4 mb-6">
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                        <Database className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">¿Por qué hacer backup?</h2>
-                        <ul className="text-gray-600 space-y-1">
-                            <li>• Protege tus datos antes de hacer cambios en producción</li>
-                            <li>• Permite restaurar información en caso de error</li>
-                            <li>• Crea copias de seguridad periódicas</li>
-                        </ul>
+            <section className="surface overflow-hidden">
+                <div className="card-header">
+                    <div className="flex items-center gap-3">
+                        <div className="stat-icon bg-primary-50 text-primary-700">
+                            <Database className="h-5 w-5" />
+                        </div>
+                        <h2 className="section-title">¿Por qué hacer backup?</h2>
                     </div>
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                <div className="p-5 sm:p-6 space-y-5">
+                    <ul className="text-sm text-ink-600 space-y-1.5 list-disc list-inside">
+                        <li>Protege tus datos antes de hacer cambios en producción</li>
+                        <li>Permite restaurar información en caso de error</li>
+                        <li>Crea copias de seguridad periódicas</li>
+                    </ul>
+
+                    <div className="surface-muted p-4 flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-warning-600 shrink-0 mt-0.5" />
                         <div>
-                            <h3 className="font-semibold text-yellow-800 mb-1">Importante</h3>
-                            <p className="text-yellow-700 text-sm">
-                                Los archivos se descargarán en tu carpeta de Descargas. 
+                            <h3 className="badge-warning">Importante</h3>
+                            <p className="text-sm text-ink-600 mt-2">
+                                Los archivos se descargarán en tu carpeta de Descargas.
                                 Guárdalos en un lugar seguro antes de continuar con cualquier cambio.
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <button
-                    onClick={handleBackup}
-                    disabled={backupInProgress}
-                    className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
-                >
-                    {backupInProgress ? (
-                        <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                            Exportando {currentCollection}...
-                        </>
-                    ) : (
-                        <>
-                            <Download className="h-5 w-5" />
-                            Crear Backup Completo
-                        </>
-                    )}
-                </button>
-            </div>
+                <div className="divider px-5 py-4">
+                    <button
+                        onClick={handleBackup}
+                        disabled={backupInProgress}
+                        className="btn-primary w-full py-3.5 text-base"
+                    >
+                        {backupInProgress ? (
+                            <>
+                                <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Exportando {currentCollection}...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="h-5 w-5" />
+                                Crear backup completo
+                            </>
+                        )}
+                    </button>
+                </div>
+            </section>
 
             {backupComplete && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <CheckCircle className="h-6 w-6 text-green-600" />
-                        <h2 className="text-lg font-bold text-green-800">Backup Completado</h2>
-                    </div>
-                    
-                    <div className="bg-white rounded-lg p-4 mb-4">
-                        <h3 className="font-semibold text-gray-900 mb-3">Resumen de datos exportados:</h3>
-                        <div className="grid grid-cols-2 gap-3">
-                            {Object.entries(summary.collections).map(([col, count]) => (
-                                <div key={col} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                                    <span className="font-medium text-gray-700 capitalize">{col}</span>
-                                    <span className="font-bold text-blue-600">{count} docs</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                            <span className="font-bold text-gray-900">Total</span>
-                            <span className="font-bold text-green-600">{summary.totalDocuments} documentos</span>
+                <section className="surface overflow-hidden">
+                    <div className="card-header bg-success-50/60">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle className="h-5 w-5 text-success-600" />
+                            <h2 className="section-title">Backup completado</h2>
                         </div>
                     </div>
 
-                    <div className="text-sm text-green-700">
-                        <p className="font-semibold mb-1">✅ Archivos descargados:</p>
-                        <ul className="list-disc list-inside space-y-1 text-xs">
-                            {Object.keys(summary.collections).map(col => (
-                                <li key={col}>{col}_backup_*.json</li>
-                            ))}
-                            <li>backup_summary_*.json</li>
-                        </ul>
+                    <div className="p-5 sm:p-6 space-y-5">
+                        <div>
+                            <h3 className="section-label">Resumen de datos exportados</h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                                {Object.entries(summary.collections).map(([col, count]) => (
+                                    <div key={col} className="stat-card">
+                                        <span className="stat-label capitalize">{col}</span>
+                                        <span className="stat-value tabular-nums">{count} docs</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="divider flex justify-between items-center gap-3 pt-4">
+                            <span className="stat-label">Total</span>
+                            <span className="stat-value tabular-nums text-success-700">
+                                {summary.totalDocuments} documentos
+                            </span>
+                        </div>
+
+                        <div>
+                            <p className="section-label">Archivos descargados</p>
+                            <ul className="mt-3">
+                                {Object.keys(summary.collections).map(col => (
+                                    <li key={col} className="divider py-2.5 text-xs text-ink-500 tabular-nums">{col}_backup_*.json</li>
+                                ))}
+                                <li className="divider py-2.5 text-xs text-ink-500 tabular-nums">backup_summary_*.json</li>
+                            </ul>
+                        </div>
                     </div>
-                </div>
+                </section>
             )}
         </div>
     );

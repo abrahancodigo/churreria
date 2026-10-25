@@ -1,9 +1,8 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { useCompany } from "../context/CompanyContext";
 
 const ReceiptPrinter = forwardRef((props, ref) => {
   const iframeRef = useRef(null);
-  const [content, setContent] = useState(null);
   const { companyInfo } = useCompany();
 
   const printReceipt = (data) => {
@@ -120,7 +119,6 @@ const ReceiptPrinter = forwardRef((props, ref) => {
   // Exposed after printReceipt is declared to avoid a temporal-dead-zone access.
   useImperativeHandle(ref, () => ({
     print: (data) => {
-      setContent(data);
       setTimeout(() => {
         printReceipt(data);
       }, 100);

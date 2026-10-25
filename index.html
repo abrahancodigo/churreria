@@ -2,19 +2,44 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/churreria.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="theme-color" content="#f8fafc" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="description" content="Sistema de punto de venta e inventario para churrería" />
-    <title>Web POS - Sistema de Inventario</title>
-    
-    <!-- Google Fonts: Plus Jakarta Sans -->
+    <title>Churrería — Gestión y punto de venta</title>
+
+    <!-- Tipografía: carga NO bloqueante (la app pinta con la fuente del sistema
+         y hace el swap cuando la descarga termina). Con preconnect se ahorra
+         el handshake TLS en la primera visita. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+      media="print"
+      onload="this.media='all'; this.onload=null"
+    >
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap">
+    </noscript>
+
+    <!-- Aplica el tema antes del primer pintado para evitar el destello blanco -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("churreria-theme");
+          var dark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          if (dark) root.classList.add("dark");
+          root.style.colorScheme = dark ? "dark" : "light";
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", dark ? "#0d1117" : "#f8fafc");
+        } catch (e) { /* sin localStorage: usa el tema claro */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

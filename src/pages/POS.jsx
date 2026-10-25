@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Loader, X } from "lucide-react";
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Loader, X, PackageX, Flame } from "lucide-react";
 import { getProducts, adjustStock } from "../lib/db";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import ReceiptPrinter from "../components/ReceiptPrinter";
+import { formatCurrency } from "../lib/formatters";
 
 export default function POS() {
     const [products, setProducts] = useState([]);
@@ -131,20 +132,30 @@ export default function POS() {
         }
     };
 
-    if (loading) return <div className="flex h-full items-center justify-center">Cargando productos...</div>;
+    if (loading) {
+        return (
+            <div className="flex h-full items-center justify-center text-sm text-ink-500">
+                <span className="h-5 w-5 border-2 border-ink-300 border-t-ink-700 rounded-full animate-spin mr-3" />
+                Cargando productos...
+            </div>
+        );
+    }
 
     // Cart Content Component (reused in both desktop sidebar and mobile modal)
     const CartContent = ({ isMobile = false }) => (
-        <div className={`flex flex-col h-full min-h-0 ${isMobile ? '' : 'bg-white shadow-xl border-l border-gray-200'}`}>
-            <div className="shrink-0 p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-800 flex items-center">
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    Venta Actual
+        <div className={`flex flex-col h-full min-h-0 ${isMobile ? '' : 'surface'}`}>
+            <div className="shrink-0 px-4 sm:px-5 h-14 border-b border-ink-200/70 flex items-center justify-between">
+                <h2 className="section-title flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4 text-ink-400" />
+                    Venta actual
+                    {cartItemCount > 0 && (
+                        <span className="badge-primary tabular-nums">{cartItemCount}</span>
+                    )}
                 </h2>
                 {isMobile && (
                     <button
                         onClick={() => setIsCartOpen(false)}
-                        className="touch-target -my-2 -mr-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                        className="touch-target -my-2 -mr-2 rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100"
                         aria-label="Cerrar carrito"
                     >
                         <X className="h-5 w-5" />
@@ -152,26 +163,29 @@ export default function POS() {
                 )}
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 overscroll-contain custom-scrollbar">
                 {cart.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                        <ShoppingCart className="h-12 w-12 mb-2 opacity-50" />
-                        <p>Carrito vacío</p>
+                    <div className="empty-state h-full">
+                        <div className="empty-icon">
+                            <ShoppingCart className="h-6 w-6 text-ink-400" />
+                        </div>
+                        <p className="text-sm font-medium text-ink-700">Carrito vacío</p>
+                        <p className="text-xs text-ink-500 mt-1">Toca un producto para agregarlo.</p>
                     </div>
                 ) : (
                     cart.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                        <div key={item.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-ink-200/70 bg-ink-50/70">
                             <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium text-gray-900 truncate" title={item.name}>{item.name}</h4>
-                                <p className="text-sm text-gray-500">${Number(item.price).toFixed(2)} c/u</p>
+                                <h4 className="text-sm font-medium text-ink-900 truncate" title={item.name}>{item.name}</h4>
+                                <p className="text-xs text-ink-500 tabular-nums mt-0.5">{formatCurrency(item.price)} c/u</p>
                             </div>
-                            <div className="flex items-center gap-1 sm:gap-2 ml-2 shrink-0">
+                            <div className="flex items-center gap-1 ml-2 shrink-0">
                                 <button
                                     onClick={() => updateQty(item.id, -1)}
-                                    className="touch-target rounded-lg text-gray-600 bg-gray-50 active:bg-gray-200 hover:bg-gray-100 touch-manipulation"
+                                    className="touch-target rounded-lg text-ink-500 hover:text-ink-900 hover:bg-ink-100 active:bg-ink-200 touch-manipulation"
                                     aria-label={`Quitar una unidad de ${item.name}`}
                                 >
-                                    <Minus className="h-5 w-5" />
+                                    <Minus className="h-4 w-4" />
                                 </button>
                                 <input
                                     type="number"
@@ -182,21 +196,21 @@ export default function POS() {
                                     value={item.qty}
                                     onChange={(e) => setManualQty(item.id, e.target.value)}
                                     aria-label={`Cantidad de ${item.name}`}
-                                    className="w-14 text-center border border-gray-300 rounded-lg py-2 text-base font-semibold"
+                                    className="w-12 shrink-0 text-center rounded-lg border border-ink-200 bg-elevated px-1 py-1.5 text-sm font-semibold text-ink-900 tabular-nums focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
                                 />
                                 <button
                                     onClick={() => updateQty(item.id, 1)}
-                                    className="touch-target rounded-lg text-gray-600 bg-gray-50 active:bg-gray-200 hover:bg-gray-100 touch-manipulation"
+                                    className="touch-target rounded-lg text-ink-500 hover:text-ink-900 hover:bg-ink-100 active:bg-ink-200 touch-manipulation"
                                     aria-label={`Añadir una unidad de ${item.name}`}
                                 >
-                                    <Plus className="h-5 w-5" />
+                                    <Plus className="h-4 w-4" />
                                 </button>
                                 <button
                                     onClick={() => removeFromCart(item.id)}
-                                    className="touch-target rounded-lg text-red-600 bg-red-50 active:bg-red-200 hover:bg-red-100 touch-manipulation"
+                                    className="touch-target rounded-lg text-danger-500 hover:text-danger-700 hover:bg-danger-50 active:bg-danger-100 touch-manipulation"
                                     aria-label={`Eliminar ${item.name} del carrito`}
                                 >
-                                    <Trash2 className="h-5 w-5" />
+                                    <Trash2 className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
@@ -204,9 +218,9 @@ export default function POS() {
                 )}
             </div>
 
-            <div className="shrink-0 p-4 border-t border-gray-200 bg-gray-50 space-y-3 pb-safe">
+            <div className="shrink-0 p-4 border-t border-ink-200/70 space-y-3 pb-safe">
                 <div>
-                    <label htmlFor="pos-reference" className="block text-xs font-medium text-gray-700 mb-1">Referencia / Comentario (Opcional)</label>
+                    <label htmlFor="pos-reference" className="input-label">Referencia o comentario (opcional)</label>
                     <input
                         id="pos-reference"
                         type="text"
@@ -215,31 +229,30 @@ export default function POS() {
                         value={reference}
                         onChange={(e) => setReference(e.target.value)}
                         placeholder="ej. Cliente Juan, Mesa 5..."
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base focus:ring-blue-500 focus:border-blue-500"
+                        className="input-field"
                     />
                 </div>
 
-                <div className="flex justify-between items-center">
-                    <span className="text-base font-medium text-gray-700">Subtotal</span>
-                    <span className="text-2xl font-bold text-gray-900">${cartTotal.toFixed(2)}</span>
+                <div className="bg-ink-100/70 rounded-2xl p-4">
+                    <div className="flex justify-between items-baseline">
+                        <span className="text-sm font-medium text-ink-600">Subtotal</span>
+                        <span className="text-xl font-bold text-ink-900 tabular-nums">{formatCurrency(cartTotal)}</span>
+                    </div>
                 </div>
 
                 <button
                     onClick={handleCheckout}
                     disabled={cart.length === 0 || processing}
-                    className={`w-full flex items-center justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-bold text-white touch-manipulation ${cart.length === 0 || processing
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-                        }`}
+                    className="btn-primary w-full py-3.5 text-base"
                 >
                     {processing ? (
                         <>
-                            <Loader className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                            <Loader className="animate-spin h-5 w-5" />
                             Procesando...
                         </>
                     ) : (
                         <>
-                            <CreditCard className="-ml-1 mr-3 h-5 w-5" />
+                            <CreditCard className="h-5 w-5" />
                             Cobrar
                         </>
                     )}
@@ -249,22 +262,33 @@ export default function POS() {
     );
 
     return (
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-7rem)] h-[calc(100dvh-7rem)] md:h-[calc(100vh-4rem)] md:h-[calc(100dvh-4rem)] -m-4 sm:-m-6 md:-m-8">
+        <div className="flex h-full min-h-0 flex-col lg:flex-row">
             <ReceiptPrinter ref={printerRef} />
 
             {/* Product Grid Area */}
-            <div className="flex-1 flex flex-col p-4 bg-gray-100 overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6 lg:p-7">
+                <div className="mb-4 flex shrink-0 items-end justify-between gap-4">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-700">Venta rápida</p>
+                        <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Punto de venta</h1>
+                        <p className="mt-1 text-sm text-ink-500">Elige los productos para agregar a la venta.</p>
+                    </div>
+                    <span className="hidden rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-ink-500 shadow-xs sm:inline-flex">
+                        {products.length} productos
+                    </span>
+                </div>
+
                 {/* Search Bar */}
-                <div className="mb-4 relative">
+                <div className="relative mb-4 shrink-0">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-gray-400" />
+                        <Search className="h-4 w-4 text-ink-400" />
                     </div>
                     <input
                         type="search"
                         autoComplete="off"
                         enterKeyHint="search"
                         aria-label="Buscar producto por nombre o SKU"
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-base"
+                        className="input-field pl-9"
                         placeholder="Buscar por nombre o SKU..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -272,65 +296,71 @@ export default function POS() {
                 </div>
 
                 {/* Product Grid */}
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 content-start pb-20 lg:pb-0">
+                <div className="custom-scrollbar grid min-h-0 flex-1 content-start grid-cols-2 gap-3 overflow-y-auto pb-20 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 lg:pb-0">
                     {filteredProducts.map((product) => (
                         <button
                             key={product.id}
                             onClick={() => addToCart(product)}
-                            className="flex flex-col bg-white rounded-lg shadow hover:shadow-md transition-shadow p-3 text-left border border-transparent hover:border-blue-300 focus:outline-none active:scale-95 touch-manipulation"
+                            className="surface group flex flex-col p-3 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-card-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] touch-manipulation disabled:cursor-not-allowed disabled:opacity-55"
+                            disabled={product.stock < 1}
                         >
-                            <div className="w-full h-24 sm:h-32 bg-gray-200 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                            <div className="mb-3 flex h-20 w-full items-center justify-center overflow-hidden rounded-xl bg-primary-50 sm:h-28">
                                 {product.image ? (
                                     <img src={product.image} alt={product.name} className="object-cover h-full w-full" />
                                 ) : (
-                                    <span className="text-gray-400 text-2xl sm:text-3xl font-bold">{product.name.charAt(0)}</span>
+                                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-primary-500 shadow-xs transition-transform group-hover:scale-105">
+                                        <Flame className="h-5 w-5" aria-hidden="true" />
+                                    </span>
                                 )}
                             </div>
-                            <h3 className="font-semibold text-gray-900 truncate w-full text-sm sm:text-base" title={product.name}>{product.name}</h3>
-                            <div className="flex justify-between items-center mt-auto pt-2">
-                                <span className="text-blue-600 font-bold text-sm sm:text-base">${Number(product.price).toFixed(2)}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                    {product.stock}
+                            <h3 className="w-full truncate text-sm font-semibold leading-snug text-ink-900" title={product.name}>{product.name}</h3>
+                            <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
+                                <span className="text-sm font-bold text-ink-900 tabular-nums sm:text-base">
+                                    {formatCurrency(product.price)}
+                                </span>
+                                <span className={`tabular-nums ${product.stock > 0 ? "badge-success" : "badge-danger"}`}>
+                                    {product.stock > 0 ? `${product.stock} disp.` : "Agotado"}
                                 </span>
                             </div>
                         </button>
                     ))}
                     {filteredProducts.length === 0 && (
-                        <div className="col-span-full text-center py-10 text-gray-500">
-                            No se encontraron productos.
+                        <div className="col-span-full empty-state">
+                            <div className="empty-icon">
+                                <PackageX className="h-6 w-6 text-ink-400" />
+                            </div>
+                            <p className="text-sm font-medium text-ink-700">Sin resultados</p>
+                            <p className="text-xs text-ink-500 mt-1">No se encontraron productos con "{searchTerm}".</p>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* Desktop Cart Sidebar */}
-            <div className="hidden lg:flex lg:w-96">
+            <div className="hidden shrink-0 p-4 lg:flex lg:w-[22rem] xl:w-[25rem] xl:p-5">
                 <CartContent />
             </div>
 
             {/* Mobile Cart Button */}
             <button
                 onClick={() => setIsCartOpen(true)}
-                className="lg:hidden fixed bottom-safe right-4 z-30 bg-blue-600 text-white px-5 py-4 rounded-full shadow-lg flex items-center space-x-2 active:scale-95 touch-manipulation"
+                className="lg:hidden fixed bottom-safe right-4 z-30 flex items-center gap-2 rounded-2xl bg-brand-gradient-soft px-4 py-3.5 text-white shadow-glow transition-transform active:scale-95 touch-manipulation"
                 aria-label={`Abrir carrito, ${cartItemCount} artículos`}
             >
-                <ShoppingCart className="h-6 w-6" />
-                {cartItemCount > 0 && (
-                    <span className="bg-white text-blue-600 rounded-full px-2 py-0.5 text-sm font-bold min-w-[24px] text-center">
-                        {cartItemCount}
-                    </span>
-                )}
+                <ShoppingCart className="h-5 w-5" />
+                <span className="text-sm font-semibold tabular-nums">Ver venta</span>
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">{cartItemCount}</span>
             </button>
 
             {/* Mobile Cart Modal */}
             {isCartOpen && (
                 <div className="lg:hidden fixed inset-0 z-50" onClick={() => setIsCartOpen(false)}>
                     {/* Backdrop */}
-                    <div className="absolute inset-0 bg-black bg-opacity-50" />
+                    <div className="absolute inset-0 bg-scrim/60 animate-fade-in" />
 
                     {/* Cart Panel */}
                     <div
-                        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl max-h-[90dvh] flex flex-col overflow-hidden"
+                        className="absolute inset-x-0 bottom-0 flex max-h-[90dvh] animate-slide-up flex-col overflow-hidden rounded-t-3xl border-t border-ink-200/80 bg-surface shadow-panel"
                         onClick={(e) => e.stopPropagation()}
                         role="dialog"
                         aria-modal="true"
@@ -338,7 +368,7 @@ export default function POS() {
                     >
                         {/* Drag Handle */}
                         <div className="flex justify-center py-2 shrink-0">
-                            <div className="w-12 h-1 bg-gray-300 rounded-full" />
+                            <div className="w-10 h-1 bg-ink-300 rounded-full" />
                         </div>
                         <CartContent isMobile={true} />
                     </div>

@@ -23,7 +23,13 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Los componentes React se pasan como props destructuradas y se usan
+      // como <Componente />, lo que la regla no detecta como uso. El patrón
+      // ignora también esos nombres en mayúscula (vars y args).
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^[A-Z_]',
+      }],
     },
   },
 ])

@@ -1,22 +1,26 @@
-import { useState, useEffect } from "react";
-import { 
-    ArrowDownLeft, 
+import { useMemo, useState, useEffect } from "react";
+import {
+    ArrowDownLeft,
     ArrowUpRight,
     X,
     FileText,
     Edit,
     Calendar,
-    ChevronLeft,
-    ChevronRight,
     Package,
-    User
+    User,
+    Boxes,
+    Layers,
+    Info,
+    ArrowRightLeft,
+    ShoppingCart,
 } from "lucide-react";
 import { db } from "../firebase.config";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, parseISO } from "date-fns";
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { Link } from "react-router-dom";
 import { getProducts } from "../lib/db";
-import { doc, getDoc } from "firebase/firestore";
+import { formatCurrency } from "../lib/formatters";
+import MovementPanel from "../components/MovementPanel";
 
 export default function Dashboard() {
     const [products, setProducts] = useState([]);
@@ -25,33 +29,38 @@ export default function Dashboard() {
     const [exits, setExits] = useState([]);
     const [viewingTransaction, setViewingTransaction] = useState(null);
     const [loading, setLoading] = useState(true);
-    
+
     // Estado para el saldo del inventario
     const [inventoryBalance, setInventoryBalance] = useState(0);
     const [totalItems, setTotalItems] = useState(0);
-    
+
     // Inicializar con el mes actual
     const currentMonth = startOfMonth(new Date());
     const currentMonthEnd = endOfMonth(new Date());
-    
+
     // Estado para fechas - Entradas
     const [entryStartDate, setEntryStartDate] = useState(currentMonth);
     const [entryEndDate, setEntryEndDate] = useState(currentMonthEnd);
-    
+
     // Estado para fechas - Salidas
     const [exitStartDate, setExitStartDate] = useState(currentMonth);
     const [exitEndDate, setExitEndDate] = useState(currentMonthEnd);
 
+    const productsById = useMemo(
+        () => new Map(products.map((product) => [product.id, product])),
+        [products],
+    );
+
     useEffect(() => {
         const unsubscribeProducts = getProducts((data) => {
             setProducts(data);
-            
+
             // Calcular saldo del inventario: costo × stock
             const balance = data.reduce((acc, p) => {
                 return acc + (Number(p.cost || 0) * Number(p.stock || 0));
             }, 0);
             const totalItems = data.reduce((acc, p) => acc + Number(p.stock || 0), 0);
-            
+
             setInventoryBalance(balance);
             setTotalItems(totalItems);
         });
@@ -59,53 +68,31 @@ export default function Dashboard() {
         return () => unsubscribeProducts();
     }, []);
 
-    // Cargar usuarios para mostrar email en lugar de UID
+    // Cargar los usuarios que aparecen en los movimientos del periodo actual.
     useEffect(() => {
-        const fetchUsers = async () => {
+        const userIds = [...new Set([...entries, ...exits]
+            .map((transaction) => transaction.userId)
+            .filter((userId) => userId && !users[userId]))];
+
+        if (userIds.length === 0) return undefined;
+
+        let isCurrent = true;
+        Promise.all(userIds.map(async (userId) => {
             try {
-                // Obtenemos todas las transacciones para extraer los UIDs únicos
-                const allTransactionsQuery = query(
-                    collection(db, "transactions"),
-                    orderBy("timestamp", "desc")
-                );
-                const snapshot = await getDocs(allTransactionsQuery);
-                
-                const uniqueUserIds = new Set();
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    if (data.userId) {
-                        uniqueUserIds.add(data.userId);
-                    }
-                });
-
-                // Obtenemos los datos de cada usuario
-                const usersMap = {};
-                for (const userId of uniqueUserIds) {
-                    try {
-                        const userDoc = await getDoc(doc(db, "users", userId));
-                        if (userDoc.exists()) {
-                            const userData = userDoc.data();
-                            usersMap[userId] = {
-                                email: userData.email || userId,
-                                name: userData.name || userData.email || userId
-                            };
-                        } else {
-                            usersMap[userId] = { email: userId, name: userId };
-                        }
-                    } catch (err) {
-                        console.warn(`Error fetching user ${userId}:`, err);
-                        usersMap[userId] = { email: userId, name: userId };
-                    }
-                }
-                
-                setUsers(usersMap);
+                const userSnapshot = await getDoc(doc(db, "users", userId));
+                const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+                const email = userData.email || userId;
+                return [userId, { email, name: userData.name || email }];
             } catch (error) {
-                console.error("Error fetching users:", error);
+                console.warn(`No se pudo cargar el usuario ${userId}:`, error);
+                return [userId, { email: userId, name: userId }];
             }
-        };
+        })).then((userEntries) => {
+            if (isCurrent) setUsers((current) => ({ ...current, ...Object.fromEntries(userEntries) }));
+        });
 
-        fetchUsers();
-    }, []);
+        return () => { isCurrent = false; };
+    }, [entries, exits, users]);
 
     // Fetch entradas cuando cambian las fechas
     useEffect(() => {
@@ -113,21 +100,19 @@ export default function Dashboard() {
             try {
                 const start = startOfDay(entryStartDate);
                 const end = endOfDay(entryEndDate);
-                
+
                 const entriesQuery = query(
                     collection(db, "transactions"),
                     where("type", "==", "entry"),
+                    where("timestamp", ">=", start),
+                    where("timestamp", "<=", end),
                     orderBy("timestamp", "desc")
                 );
                 const entriesSnapshot = await getDocs(entriesQuery);
-                
+
                 const entriesData = entriesSnapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(tx => {
-                        const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : null;
-                        return txDate && txDate >= start && txDate <= end;
-                    });
-                
+                    .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }));
+
                 setEntries(entriesData);
             } catch (error) {
                 console.error("Error fetching entries:", error);
@@ -146,21 +131,19 @@ export default function Dashboard() {
             try {
                 const start = startOfDay(exitStartDate);
                 const end = endOfDay(exitEndDate);
-                
+
                 const exitsQuery = query(
                     collection(db, "transactions"),
                     where("type", "==", "exit"),
+                    where("timestamp", ">=", start),
+                    where("timestamp", "<=", end),
                     orderBy("timestamp", "desc")
                 );
                 const exitsSnapshot = await getDocs(exitsQuery);
-                
+
                 const exitsData = exitsSnapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(tx => {
-                        const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : null;
-                        return txDate && txDate >= start && txDate <= end;
-                    });
-                
+                    .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }));
+
                 setExits(exitsData);
             } catch (error) {
                 console.error("Error fetching exits:", error);
@@ -177,21 +160,16 @@ export default function Dashboard() {
         setViewingTransaction(tx);
     };
 
-    // Calcular total de entradas
-    const totalEntries = entries.reduce((acc, tx) => {
-        return acc + (tx.items?.reduce((sum, item) => {
-            const product = products.find(p => p.id === item.productId);
-            return sum + (product ? Number(product.cost || 0) * Number(item.quantity) : 0);
-        }, 0) || 0);
-    }, 0);
+    const getMovementTotal = (transactions) => transactions.reduce((total, transaction) => (
+        total + (transaction.items?.reduce((subtotal, item) => {
+            const product = productsById.get(item.productId);
+            const cost = Number(product?.cost ?? item.cost ?? 0);
+            return subtotal + cost * Number(item.quantity || 0);
+        }, 0) || 0)
+    ), 0);
 
-    // Calcular total de salidas
-    const totalExits = exits.reduce((acc, tx) => {
-        return acc + (tx.items?.reduce((sum, item) => {
-            const product = products.find(p => p.id === item.productId);
-            return sum + (product ? Number(product.cost || 0) * Number(item.quantity) : 0);
-        }, 0) || 0);
-    }, 0);
+    const totalEntries = getMovementTotal(entries);
+    const totalExits = getMovementTotal(exits);
 
     // Navegación de meses
     const previousMonth = (type) => {
@@ -210,7 +188,7 @@ export default function Dashboard() {
         const current = type === 'entry' ? entryStartDate : exitStartDate;
         const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
         const now = new Date();
-        
+
         if (next.getMonth() > now.getMonth() || next.getFullYear() > now.getFullYear()) {
             if (type === 'entry') {
                 setEntryStartDate(startOfMonth(now));
@@ -241,543 +219,299 @@ export default function Dashboard() {
         }
     };
 
-    // Date Picker Modal
-    const DatePickerModal = ({ isOpen, onClose, onSelect, startDate, endDate }) => {
-        const [tempStart, setTempStart] = useState(format(startDate, 'yyyy-MM-dd'));
-        const [tempEnd, setTempEnd] = useState(format(endDate, 'yyyy-MM-dd'));
+    const kpis = [
+        {
+            label: "Valor del inventario",
+            value: formatCurrency(inventoryBalance),
+            hint: "Suma de costo × stock",
+            icon: Package,
+            tone: "primary",
+        },
+        {
+            label: "Productos",
+            value: products.length,
+            hint: "Referencias activas",
+            icon: Boxes,
+            tone: "success",
+        },
+        {
+            label: "Items en stock",
+            value: totalItems,
+            hint: "Unidades totales",
+            icon: Layers,
+            tone: "warning",
+        },
+        {
+            label: "Movimientos cargados",
+            value: entries.length + exits.length,
+            hint: `${entries.length} entradas · ${exits.length} salidas`,
+            icon: ArrowRightLeft,
+            tone: "danger",
+        },
+    ];
 
-        if (!isOpen) return null;
-
-        return (
-            <div 
-                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in"
-                onClick={onClose}
-            >
-                <div 
-                    className="bg-white rounded-3xl shadow-glass-lg p-6 w-full max-w-md animate-scale-in"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-black text-slate-800">Seleccionar Rango</h3>
-                        <button 
-                            onClick={onClose}
-                            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">Fecha Inicial</label>
-                            <input
-                                type="date"
-                                value={tempStart}
-                                onChange={(e) => setTempStart(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl 
-                                         focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 
-                                         transition-all font-medium"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">Fecha Final</label>
-                            <input
-                                type="date"
-                                value={tempEnd}
-                                onChange={(e) => setTempEnd(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl 
-                                         focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 
-                                         transition-all font-medium"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 mt-6">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl 
-                                     hover:bg-slate-200 transition-all"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={() => {
-                                onSelect(parseISO(tempStart), parseISO(tempEnd));
-                                onClose();
-                            }}
-                            className="flex-1 px-4 py-3 bg-gradient-to-r from-primary-500 to-primary-600 
-                                     text-white font-bold rounded-2xl hover:from-primary-600 hover:to-primary-700 
-                                     transition-all shadow-glow-primary"
-                        >
-                            Aplicar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    // Panel Component
-    const MovementPanel = ({ 
-        title, 
-        type, 
-        data, 
-        total, 
-        startDate, 
-        endDate, 
-        onPrevious, 
-        onNext, 
-        onReset,
-        onDateSelect,
-        icon: Icon,
-        gradient
-    }) => {
-        const [showDatePicker, setShowDatePicker] = useState(false);
-        const isEntry = type === 'entry';
-
-        return (
-            <>
-                <div className={`bg-gradient-to-br ${gradient} backdrop-blur-xl border border-white/40 
-                              shadow-glass-lg rounded-[2.5rem] p-6 lg:p-8 relative overflow-hidden`}>
-                    <div className={`absolute top-0 right-0 w-64 h-64 ${isEntry ? 'bg-success-200/20' : 'bg-warning-200/20'} 
-                                  blur-[100px] rounded-full -mr-32 -mt-32`}></div>
-                    
-                    <div className="relative z-10 h-full flex flex-col">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-14 h-14 rounded-2xl ${isEntry ? 'bg-success-gradient shadow-glow-success' : 'bg-warning-gradient shadow-glow-warning'} 
-                                              flex items-center justify-center`}>
-                                    <Icon className="h-7 w-7 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
-                                    <p className="text-sm text-slate-500 font-medium">
-                                        {format(startDate, "MMMM yyyy")}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Date Navigation */}
-                        <div className="flex items-center gap-2 mb-4">
-                            <button
-                                onClick={() => onPrevious(type)}
-                                className="p-2 rounded-xl bg-white/60 hover:bg-white/90 border border-white/30 
-                                         transition-all hover:scale-105"
-                                title="Mes anterior"
-                            >
-                                <ChevronLeft className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                onClick={() => setShowDatePicker(true)}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 
-                                       bg-white/60 hover:bg-white/90 border border-white/30 rounded-xl 
-                                       transition-all font-bold text-slate-700 text-sm"
-                            >
-                                <Calendar className="h-4 w-4" />
-                                {format(startDate, "dd/MM/yyyy")} - {format(endDate, "dd/MM/yyyy")}
-                            </button>
-                            <button
-                                onClick={() => onNext(type)}
-                                className="p-2 rounded-xl bg-white/60 hover:bg-white/90 border border-white/30 
-                                         transition-all hover:scale-105"
-                                title="Mes siguiente"
-                            >
-                                <ChevronRight className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                onClick={() => onReset(type)}
-                                className="px-3 py-2 bg-gradient-to-r from-primary-500 to-primary-600 
-                                         text-white text-xs font-bold rounded-xl hover:from-primary-600 
-                                         hover:to-primary-700 transition-all shadow-glow-primary"
-                                title="Mes actual"
-                            >
-                                Hoy
-                            </button>
-                        </div>
-
-                        {/* Table */}
-                        <div className="flex-1 overflow-hidden bg-white/60 backdrop-blur-sm rounded-2xl border border-white/30">
-                            <div className="overflow-y-auto max-h-[400px] overflow-x-auto custom-scrollbar">
-                                <table className="min-w-full">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
-                                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Referencia</th>
-                                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Sucursal</th>
-                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {loading ? (
-                                            <tr>
-                                                <td colSpan="4" className="px-4 py-12 text-center">
-                                                    <div className="w-8 h-8 border-2 border-current border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                                    <p className="text-slate-500 font-medium mt-3">Cargando...</p>
-                                                </td>
-                                            </tr>
-                                        ) : data.length > 0 ? (
-                                            data.map((tx) => {
-                                                const rowTotal = tx.items?.reduce((sum, item) => {
-                                                    const product = products.find(p => p.id === item.productId);
-                                                    return sum + (product ? Number(product.cost || 0) * Number(item.quantity) : 0);
-                                                }, 0) || 0;
-
-                                                return (
-                                                    <tr 
-                                                        key={tx.id} 
-                                                        className="hover:bg-white/80 transition-colors cursor-pointer"
-                                                        onClick={() => handleViewTransaction(tx)}
-                                                    >
-                                                        <td className="px-4 py-3 text-sm font-medium text-slate-700 whitespace-nowrap">
-                                                            {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), "dd/MM/yyyy") : '--'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm font-bold text-slate-800">
-                                                            {tx.reference || 'Sin referencia'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm text-slate-600">
-                                                            {tx.sucursal || 'Principal'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <span className={`text-sm font-black ${isEntry ? 'text-success-600' : 'text-warning-600'}`}>
-                                                                ${rowTotal.toFixed(2)}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="4" className="px-4 py-12 text-center">
-                                                    <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl ${isEntry ? 'bg-success-100' : 'bg-warning-100'} 
-                                                                  flex items-center justify-center`}>
-                                                        <Icon className={`h-8 w-8 ${isEntry ? 'text-success-400' : 'text-warning-400'}`} />
-                                                    </div>
-                                                    <p className="text-slate-500 font-medium">No hay movimientos en este rango</p>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* Total */}
-                        <div className={`mt-4 pt-4 border-t-2 ${isEntry ? 'border-success-200' : 'border-warning-200'}`}>
-                            <div className="flex items-center justify-between bg-gradient-to-r from-white/80 to-white/40 
-                                          backdrop-blur-sm rounded-2xl px-5 py-4 border border-white/30">
-                                <div>
-                                    <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
-                                        Total {title}
-                                    </span>
-                                    <p className="text-xs text-slate-400 mt-0.5">{data.length} movimiento(s) en el rango</p>
-                                </div>
-                                <span className={`text-3xl font-black ${isEntry ? 'text-success-600' : 'text-warning-600'}`}>
-                                    ${total.toFixed(2)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Date Picker Modal */}
-                <DatePickerModal
-                    isOpen={showDatePicker}
-                    onClose={() => setShowDatePicker(false)}
-                    onSelect={(start, end) => onDateSelect(start, end)}
-                    startDate={startDate}
-                    endDate={endDate}
-                />
-            </>
-        );
+    const toneClasses = {
+        primary: "bg-primary-50 text-primary-700",
+        success: "bg-success-50 text-success-700",
+        warning: "bg-warning-50 text-warning-700",
+        danger: "bg-danger-50 text-danger-700",
+        neutral: "bg-ink-100 text-ink-600",
     };
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <header className="flex items-center justify-between">
+            <header className="page-header">
                 <div>
-                    <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-accent-600 tracking-tight">
-                        Movimientos de Almacén
-                    </h1>
-                    <p className="text-slate-500 font-medium mt-1">Control de entradas y salidas</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary-700">Resumen de tu tienda</p>
+                    <h1 className="page-title">Tu tienda, de un vistazo</h1>
+                    <p className="page-subtitle">Existencias y movimientos de almacén en un solo lugar.</p>
                 </div>
-                <Link
-                    to="/stock-adjustments"
-                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 
-                             text-white font-bold rounded-2xl hover:from-primary-600 hover:to-primary-700 
-                             transition-all shadow-glow-primary hover:shadow-lg"
-                >
-                    <Edit className="h-5 w-5 mr-2" />
-                    Nuevo Movimiento
-                </Link>
+                <div className="flex flex-wrap gap-2.5">
+                    <Link to="/pos" className="btn-primary self-start sm:self-auto">
+                        <ShoppingCart className="h-4 w-4" />
+                        Nueva venta
+                    </Link>
+                    <Link to="/stock-adjustments" className="btn-secondary self-start sm:self-auto">
+                        <Edit className="h-4 w-4" />
+                        Registrar movimiento
+                    </Link>
+                </div>
             </header>
 
-            {/* Main Content Grid */}
+            {/* KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {kpis.map((kpi) => {
+                    const Icon = kpi.icon;
+                    return (
+                        <div key={kpi.label} className="stat-card">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="stat-label">{kpi.label}</p>
+                                    <p className="stat-value truncate mt-1">
+                                        {kpi.value}
+                                    </p>
+                                    <p className="text-xs text-ink-500 mt-1">{kpi.hint}</p>
+                                </div>
+                                <div className={`stat-icon ${toneClasses[kpi.tone]}`}>
+                                    <Icon className="h-[18px] w-[18px]" />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Movement panels */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MovementPanel
                     title="Entradas"
                     type="entry"
-                    data={entries}
+                    transactions={entries}
                     total={totalEntries}
                     startDate={entryStartDate}
                     endDate={entryEndDate}
-                    onPrevious={previousMonth}
-                    onNext={nextMonth}
-                    onReset={resetToCurrentMonth}
+                    loading={loading}
+                    productsById={productsById}
+                    onPrevious={() => previousMonth("entry")}
+                    onNext={() => nextMonth("entry")}
+                    onReset={() => resetToCurrentMonth("entry")}
+                    onViewTransaction={handleViewTransaction}
                     onDateSelect={(start, end) => {
                         setEntryStartDate(start);
                         setEntryEndDate(end);
                     }}
                     icon={ArrowDownLeft}
-                    gradient="from-white/90 via-success-50/30 to-white/60"
                 />
 
                 <MovementPanel
                     title="Salidas"
                     type="exit"
-                    data={exits}
+                    transactions={exits}
                     total={totalExits}
                     startDate={exitStartDate}
                     endDate={exitEndDate}
-                    onPrevious={previousMonth}
-                    onNext={nextMonth}
-                    onReset={resetToCurrentMonth}
+                    loading={loading}
+                    productsById={productsById}
+                    onPrevious={() => previousMonth("exit")}
+                    onNext={() => nextMonth("exit")}
+                    onReset={() => resetToCurrentMonth("exit")}
+                    onViewTransaction={handleViewTransaction}
                     onDateSelect={(start, end) => {
                         setExitStartDate(start);
                         setExitEndDate(end);
                     }}
                     icon={ArrowUpRight}
-                    gradient="from-white/90 via-warning-50/30 to-white/60"
                 />
             </div>
 
-            {/* Saldo de Inventario Card */}
-            <div className="bg-gradient-to-br from-white/90 via-primary-50/40 to-accent-50/30 
-                          backdrop-blur-xl border border-white/40 shadow-glass-lg 
-                          rounded-[2.5rem] p-6 lg:p-8 relative overflow-hidden">
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-primary-200/20 blur-[120px] rounded-full -mr-48 -mt-48"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-200/20 blur-[100px] rounded-full -ml-32 -mb-32"></div>
-                
-                <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 
-                                          flex items-center justify-center shadow-glow-primary">
-                                <Package className="h-8 w-8 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Saldo de Inventario</h2>
-                                <p className="text-sm text-slate-500 font-medium">Valor total del inventario a costo</p>
-                            </div>
-                        </div>
+            {/* Inventory balance */}
+            <section className="surface p-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div>
+                        <p className="section-label">Saldo de inventario</p>
+                        <p className="mt-2 text-3xl font-bold text-ink-900 tracking-tight tabular-nums">
+                            {formatCurrency(inventoryBalance)}
+                        </p>
+                        <p className="mt-1 text-sm text-ink-500">
+                            Inversión total en mercancía disponible, valorada a costo.
+                        </p>
                     </div>
-
-                    {/* Balance Display */}
-                    <div className="bg-gradient-to-br from-white/80 to-white/40 backdrop-blur-sm 
-                                  rounded-3xl p-8 border-2 border-primary-200 shadow-inner-light">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="text-center md:text-left">
-                                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">
-                                    Valor Total del Inventario
-                                </p>
-                                <p className="text-5xl font-black text-transparent bg-clip-text 
-                                            bg-gradient-to-r from-primary-600 to-accent-600">
-                                    ${inventoryBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-8">
-                                <div className="text-center">
-                                    <div className="w-14 h-14 rounded-2xl bg-primary-100 flex items-center justify-center 
-                                                  mx-auto mb-2">
-                                        <Package className="h-7 w-7 text-primary-600" />
-                                    </div>
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Productos</p>
-                                    <p className="text-2xl font-black text-primary-600">{products.length}</p>
-                                </div>
-                                <div className="text-center">
-                                    <div className="w-14 h-14 rounded-2xl bg-accent-100 flex items-center justify-center 
-                                                  mx-auto mb-2">
-                                        <Package className="h-7 w-7 text-accent-600" />
-                                    </div>
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Items</p>
-                                    <p className="text-2xl font-black text-accent-600">{totalItems}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Info Note */}
-                    <div className="mt-6 flex items-start gap-3 bg-primary-50/60 backdrop-blur-sm rounded-2xl p-4 border border-primary-100">
-                        <div className="w-8 h-8 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-lg">💡</span>
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-primary-700 mb-1">¿Cómo se calcula?</p>
-                            <p className="text-xs text-slate-600 leading-relaxed">
-                                El saldo se calcula sumando el <strong>costo × stock</strong> de todos los productos en el inventario. 
-                                Este valor representa la inversión total en mercancía disponible.
-                            </p>
-                        </div>
+                    <div className="surface-muted flex items-start gap-2.5 p-4 max-w-sm">
+                        <Info className="h-4 w-4 text-ink-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-ink-600 leading-relaxed">
+                            Se calcula sumando <strong className="font-semibold text-ink-800">costo × stock</strong> de cada
+                            producto del inventario.
+                        </p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            {/* Transaction Detail Modal - Mejorado */}
+            {/* Transaction Detail Modal */}
             {viewingTransaction && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 
-                             backdrop-blur-sm p-4 animate-fade-in"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim/60 p-4 animate-fade-in"
                     onClick={() => setViewingTransaction(null)}
                 >
                     <div
-                        className="relative bg-white rounded-[2.5rem] shadow-glass-lg max-w-3xl w-full max-h-[90vh] 
-                                 overflow-y-auto animate-scale-in"
+                        className="modal-panel relative max-w-3xl w-full max-h-[90dvh] overflow-y-auto animate-scale-in"
                         onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
                     >
-                        {/* Modal Header con Botón de Cerrar */}
-                        <div className="sticky top-0 bg-gradient-to-r from-primary-50 to-accent-50 
-                                      backdrop-blur-xl border-b border-white/30 px-6 py-5 flex items-center justify-between 
-                                      rounded-t-[2.5rem] z-10">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center 
-                                    ${viewingTransaction.type === 'entry' 
-                                        ? 'bg-success-gradient shadow-glow-success' 
-                                        : 'bg-warning-gradient shadow-glow-warning'}`}>
-                                    {viewingTransaction.type === 'entry' 
-                                        ? <ArrowDownLeft className="h-7 w-7 text-white" />
-                                        : <ArrowUpRight className="h-7 w-7 text-white" />
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-surface border-b border-ink-200/70 px-6 py-4 flex items-center justify-between z-10">
+                            <div className="flex items-center gap-3">
+                                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                    viewingTransaction.type === 'entry'
+                                        ? 'bg-success-50 text-success-600'
+                                        : 'bg-warning-50 text-warning-600'
+                                }`}>
+                                    {viewingTransaction.type === 'entry'
+                                        ? <ArrowDownLeft className="h-5 w-5" />
+                                        : <ArrowUpRight className="h-5 w-5" />
                                     }
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-black text-slate-800">
-                                        {viewingTransaction.type === 'entry' ? 'Entrada de Almacén' : 'Salida de Almacén'}
+                                <div className="min-w-0">
+                                    <h3 className="section-title">
+                                        {viewingTransaction.type === 'entry' ? 'Entrada de almacén' : 'Salida de almacén'}
                                     </h3>
-                                    <p className="text-sm text-slate-500 font-medium">
+                                    <p className="text-xs text-ink-500 truncate">
                                         {viewingTransaction.reference || 'Sin referencia'}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setViewingTransaction(null)}
-                                className="p-3 rounded-xl bg-white/60 hover:bg-white text-slate-500 hover:text-danger-600 
-                                         transition-all duration-300 hover:scale-110 hover:rotate-90"
+                                className="btn-icon h-10 w-10 rounded-xl -mr-2"
                                 title="Cerrar"
+                                aria-label="Cerrar"
                             >
-                                <X className="h-6 w-6" />
+                                <X className="h-5 w-5" />
                             </button>
                         </div>
 
                         {/* Modal Content */}
                         <div className="p-6 space-y-6">
                             {/* Info Cards */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Calendar className="h-4 w-4 text-primary-500" />
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Fecha</p>
-                                    </div>
-                                    <p className="text-sm font-black text-slate-800">
-                                        {viewingTransaction.timestamp?.toDate 
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {[
+                                    {
+                                        icon: Calendar,
+                                        label: "Fecha",
+                                        value: viewingTransaction.timestamp?.toDate
                                             ? format(viewingTransaction.timestamp.toDate(), "dd/MM/yyyy")
-                                            : '--'
-                                        }
-                                    </p>
-                                </div>
-                                <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <User className="h-4 w-4 text-primary-500" />
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Usuario</p>
-                                    </div>
-                                    <p className="text-sm font-black text-slate-800 truncate" title={users[viewingTransaction.userId]?.email || viewingTransaction.userId}>
-                                        {users[viewingTransaction.userId]?.name || viewingTransaction.userId || 'N/A'}
-                                    </p>
-                                </div>
-                                <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Package className="h-4 w-4 text-primary-500" />
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Productos</p>
-                                    </div>
-                                    <p className="text-sm font-black text-slate-800">
-                                        {viewingTransaction.items?.length || 0}
-                                    </p>
-                                </div>
-                                <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <FileText className="h-4 w-4 text-primary-500" />
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Sucursal</p>
-                                    </div>
-                                    <p className="text-sm font-black text-slate-800">
-                                        {viewingTransaction.sucursal || 'Principal'}
-                                    </p>
-                                </div>
+                                            : '--',
+                                    },
+                                    {
+                                        icon: User,
+                                        label: "Usuario",
+                                        value: users[viewingTransaction.userId]?.name || viewingTransaction.userId || 'N/A',
+                                        title: users[viewingTransaction.userId]?.email || viewingTransaction.userId,
+                                    },
+                                    {
+                                        icon: Package,
+                                        label: "Productos",
+                                        value: viewingTransaction.items?.length || 0,
+                                    },
+                                    {
+                                        icon: FileText,
+                                        label: "Sucursal",
+                                        value: viewingTransaction.sucursal || 'Principal',
+                                    },
+                                ].map((info) => {
+                                    const Icon = info.icon;
+                                    return (
+                                        <div key={info.label} className="surface-muted p-4">
+                                            <div className="flex items-center gap-1.5 mb-1.5">
+                                                <Icon className="h-3.5 w-3.5 text-ink-400" />
+                                                <p className="section-label">{info.label}</p>
+                                            </div>
+                                            <p className="text-sm font-semibold text-ink-900 truncate" title={info.title}>
+                                                {info.value}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {/* Items Table */}
                             <div>
-                                <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <FileText className="h-4 w-4" />
-                                    Detalle de Productos
-                                </h4>
-                                <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                                    <table className="min-w-full">
-                                        <thead className="bg-gradient-to-r from-slate-100 to-slate-50">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">#</th>
-                                                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Producto</th>
-                                                <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Cantidad</th>
-                                                <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Costo Unit.</th>
-                                                <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Subtotal</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {viewingTransaction.items?.map((item, idx) => {
-                                                const product = products.find(p => p.id === item.productId);
-                                                const cost = viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit'
-                                                    ? Number(product?.cost || item.cost || 0)
-                                                    : Number(product?.price || item.price || 0);
-                                                const subtotal = cost * Number(item.quantity);
-                                                
-                                                return (
-                                                    <tr key={idx} className="hover:bg-white/60 transition-colors">
-                                                        <td className="px-4 py-3 text-sm font-bold text-slate-500">{idx + 1}</td>
-                                                        <td className="px-4 py-3 text-sm font-bold text-slate-700">{item.name}</td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <span className="inline-flex items-center px-3 py-1 rounded-lg 
-                                                                         bg-primary-50 text-primary-700 font-bold text-sm">
-                                                                {item.quantity}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right text-sm font-medium text-slate-600">
-                                                            ${cost.toFixed(2)}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right text-sm font-black text-slate-800">
-                                                            ${subtotal.toFixed(2)}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                        <tfoot className="bg-gradient-to-r from-primary-50 to-accent-50">
-                                            <tr>
-                                                <td colSpan="4" className="px-4 py-3 text-right text-sm font-bold text-slate-600 uppercase">Total:</td>
-                                                <td className="px-4 py-3 text-right text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-accent-600">
-                                                    ${viewingTransaction.total?.toFixed(2) || '0.00'}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                                <h4 className="section-label mb-3">Detalle de productos</h4>
+                                <div className="table-shell">
+                                    <div className="table-scroll">
+                                        <table className="min-w-full">
+                                            <thead className="table-head">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Producto</th>
+                                                    <th className="text-center">Cantidad</th>
+                                                    <th className="text-right">Costo unit.</th>
+                                                    <th className="text-right">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="table-body">
+                                                {viewingTransaction.items?.map((item, idx) => {
+                                                    const product = productsById.get(item.productId);
+                                                    const cost = viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit'
+                                                        ? Number(product?.cost || item.cost || 0)
+                                                        : Number(product?.price || item.price || 0);
+                                                    const subtotal = cost * Number(item.quantity);
+
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td className="text-ink-400 tabular-nums">{idx + 1}</td>
+                                                            <td className="font-medium text-ink-900">{item.name}</td>
+                                                            <td className="text-center">
+                                                                <span className="badge-primary tabular-nums">{item.quantity}</span>
+                                                            </td>
+                                                            <td className="text-right tabular-nums">{formatCurrency(cost)}</td>
+                                                            <td className="text-right font-semibold text-ink-900 tabular-nums">
+                                                                {formatCurrency(subtotal)}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot className="bg-ink-50 border-t border-ink-200">
+                                                <tr>
+                                                    <td colSpan="4" className="px-4 py-3 text-right section-label">Total</td>
+                                                    <td className="px-4 py-3 text-right text-base font-bold text-ink-900 tabular-nums">
+                                                        {formatCurrency(viewingTransaction.total)}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Notes */}
                             {viewingTransaction.notes && (
                                 <div>
-                                    <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Notas / Observaciones</h4>
-                                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                                        <p className="text-sm text-slate-700 leading-relaxed">
+                                    <h4 className="section-label mb-2">Notas y observaciones</h4>
+                                    <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
+                                        <p className="text-sm text-ink-700 leading-relaxed">
                                             {viewingTransaction.notes}
                                         </p>
                                     </div>
@@ -785,16 +519,14 @@ export default function Dashboard() {
                             )}
 
                             {/* Additional Info */}
-                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                <div className="flex items-center justify-between text-xs text-slate-500">
-                                    <span>ID: {viewingTransaction.id}</span>
-                                    <span>
-                                        {viewingTransaction.timestamp?.toDate 
-                                            ? format(viewingTransaction.timestamp.toDate(), "HH:mm:ss")
-                                            : '--:--:--'
-                                        }
-                                    </span>
-                                </div>
+                            <div className="surface-muted px-4 py-3 flex items-center justify-between text-xs text-ink-500">
+                                <span className="truncate">ID: {viewingTransaction.id}</span>
+                                <span className="tabular-nums shrink-0 ml-3">
+                                    {viewingTransaction.timestamp?.toDate
+                                        ? format(viewingTransaction.timestamp.toDate(), "HH:mm:ss")
+                                        : '--:--:--'
+                                    }
+                                </span>
                             </div>
                         </div>
                     </div>

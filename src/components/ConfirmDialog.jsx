@@ -49,7 +49,7 @@ export default function ConfirmDialog({
             role="presentation"
         >
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+                className="absolute inset-0 bg-scrim/60 animate-fade-in"
                 onClick={() => !loading && onCancel?.()}
             />
 
@@ -58,25 +58,27 @@ export default function ConfirmDialog({
                 aria-modal="true"
                 aria-labelledby="confirm-dialog-title"
                 aria-describedby={message ? 'confirm-dialog-message' : undefined}
-                className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 pb-safe sm:pb-5 animate-slide-up sm:animate-scale-in"
+                className="relative w-full sm:max-w-md modal-panel p-5 pb-safe sm:pb-5 animate-slide-up sm:animate-scale-in"
             >
                 <div className="flex items-start gap-3">
-                    <div className={`shrink-0 h-11 w-11 rounded-full flex items-center justify-center ${danger ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-600'}`}>
-                        <AlertTriangle className="h-6 w-6" />
+                    <div className={`shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${
+                        danger ? 'bg-danger-50 text-danger-600' : 'bg-primary-50 text-primary-700'
+                    }`}>
+                        <AlertTriangle className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h2 id="confirm-dialog-title" className="text-lg font-bold text-gray-900">
+                        <h2 id="confirm-dialog-title" className="text-base font-semibold text-ink-900">
                             {title}
                         </h2>
                         {message && (
-                            <p id="confirm-dialog-message" className="mt-1 text-sm text-gray-600 whitespace-pre-line">
+                            <p id="confirm-dialog-message" className="mt-1 text-sm text-ink-600 whitespace-pre-line">
                                 {message}
                             </p>
                         )}
                     </div>
                     <button
                         onClick={() => !loading && onCancel?.()}
-                        className="touch-target -my-2 -mr-2 shrink-0 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        className="touch-target -my-2 -mr-2 shrink-0 rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors"
                         aria-label="Cerrar"
                     >
                         <X className="h-5 w-5" />
@@ -89,7 +91,7 @@ export default function ConfirmDialog({
                         type="button"
                         onClick={() => onCancel?.()}
                         disabled={loading}
-                        className="w-full sm:w-auto min-h-12 px-5 rounded-xl border border-gray-300 text-base font-semibold text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 touch-manipulation disabled:opacity-50"
+                        className="btn-secondary w-full sm:w-auto min-h-12"
                     >
                         {cancelLabel}
                     </button>
@@ -97,10 +99,7 @@ export default function ConfirmDialog({
                         type="button"
                         onClick={() => onConfirm?.()}
                         disabled={loading}
-                        className={`w-full sm:w-auto min-h-12 px-5 rounded-xl text-base font-semibold text-white touch-manipulation disabled:opacity-50 ${danger
-                            ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
-                            : 'bg-primary-600 hover:bg-primary-700 active:bg-primary-800'
-                            }`}
+                        className={`w-full sm:w-auto min-h-12 ${danger ? 'btn-danger' : 'btn-primary'}`}
                     >
                         {loading ? 'Procesando...' : confirmLabel}
                     </button>

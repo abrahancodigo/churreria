@@ -13,8 +13,12 @@ import { db } from '../firebase.config';
  * The exported context object is required for the provider and hook, so this
  * file intentionally mixes exports (same pattern as AuthContext/ToastContext).
  */
+// El contexto se exporta junto al provider a propósito (ver AuthContext).
+// eslint-disable-next-line react-refresh/only-export-components
 export const CompanyContext = createContext({ companyInfo: {}, loading: true });
 
+// Provider + hook en el mismo archivo: patrón intencional (ver AuthContext).
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCompany = () => useContext(CompanyContext);
 
 /** Shared listener over `settings/company`. */

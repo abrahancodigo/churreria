@@ -212,14 +212,14 @@ export default function StockAdjustment() {
     // --- Sub-renders -----------------------------------------------------
 
     const typeToggleJSX = (
-        <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-xl">
+        <div className="surface-muted p-1.5 grid grid-cols-2 gap-1.5">
             <button
                 type="button"
                 onClick={() => handleTypeChange('entry')}
                 aria-pressed={isEntry}
-                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-lg font-semibold text-sm transition-colors touch-manipulation ${isEntry
-                    ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-200'
-                    : 'text-slate-500 hover:text-slate-800'
+                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-semibold text-sm transition-all touch-manipulation ${isEntry
+                    ? 'bg-surface text-primary-700 shadow-card border border-primary-200'
+                    : 'text-ink-500 hover:text-ink-800 hover:bg-ink-100/60 border border-transparent'
                     }`}
             >
                 <ArrowDownToLine className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -229,9 +229,9 @@ export default function StockAdjustment() {
                 type="button"
                 onClick={() => handleTypeChange('exit')}
                 aria-pressed={!isEntry}
-                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-lg font-semibold text-sm transition-colors touch-manipulation ${!isEntry
-                    ? 'bg-white text-rose-700 shadow-sm ring-1 ring-rose-200'
-                    : 'text-slate-500 hover:text-slate-800'
+                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-semibold text-sm transition-all touch-manipulation ${!isEntry
+                    ? 'bg-surface text-danger-700 shadow-card border border-danger-200'
+                    : 'text-ink-500 hover:text-ink-800 hover:bg-ink-100/60 border border-transparent'
                     }`}
             >
                 <ArrowUpFromLine className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -241,19 +241,19 @@ export default function StockAdjustment() {
     );
 
     const productPickerJSX = (
-        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5">
-            <label htmlFor="product-search" className="block text-sm font-semibold text-slate-700 mb-2">
+        <section className="surface p-4 sm:p-5">
+            <label htmlFor="product-search" className="section-title block mb-3">
                 Agregar productos
             </label>
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" aria-hidden="true" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400 pointer-events-none" aria-hidden="true" />
                 <input
                     id="product-search"
                     type="search"
                     enterKeyHint="search"
                     autoComplete="off"
                     placeholder="Buscar por nombre o SKU..."
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg text-base focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                    className="input-field pl-9"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -261,14 +261,14 @@ export default function StockAdjustment() {
 
             {/* Selected product capture card */}
             {selectedProduct && (
-                <div className={`mt-3 rounded-lg border p-4 ${alreadyAdded
-                    ? 'border-amber-300 bg-amber-50'
-                    : 'border-sky-200 bg-sky-50'
+                <div className={`mt-3 rounded-2xl border p-4 ${alreadyAdded
+                    ? 'border-warning-200 bg-warning-50'
+                    : 'border-primary-200 bg-primary-50'
                     }`}>
                     <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="min-w-0">
-                            <p className="font-semibold text-slate-900 truncate">{selectedProduct.name}</p>
-                            <p className="text-xs text-slate-500">
+                            <p className="font-semibold text-ink-900 truncate">{selectedProduct.name}</p>
+                            <p className="text-xs text-ink-500">
                                 {selectedProduct.sku ? `SKU ${selectedProduct.sku} · ` : ''}
                                 Stock actual {Number(selectedProduct.stock || 0)}
                             </p>
@@ -276,7 +276,7 @@ export default function StockAdjustment() {
                         <button
                             type="button"
                             onClick={() => setSelectedProduct(null)}
-                            className="touch-target -my-2 -mr-2 text-slate-500 hover:text-slate-700 rounded-lg shrink-0"
+                            className="touch-target -my-2 -mr-2 text-ink-500 hover:text-ink-700 hover:bg-ink-100 rounded-lg shrink-0 transition-colors"
                             aria-label="Quitar selección"
                         >
                             <X className="h-4 w-4" aria-hidden="true" />
@@ -284,16 +284,19 @@ export default function StockAdjustment() {
                     </div>
 
                     {alreadyAdded ? (
-                        <p className="text-sm text-amber-800">
-                            Este producto ya está en la lista. Quítalo para cambiar la cantidad.
-                        </p>
+                        <div className="flex items-start gap-2 flex-wrap">
+                            <span className="badge-warning shrink-0">Ya en la lista</span>
+                            <p className="text-sm text-warning-700">
+                                Este producto ya está en la lista. Quítalo para cambiar la cantidad.
+                            </p>
+                        </div>
                     ) : (
                         <>
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                    className="touch-target border border-slate-300 rounded-lg bg-white active:bg-slate-200 hover:bg-slate-100 touch-manipulation"
+                                    className="touch-target border border-ink-200 rounded-xl bg-surface active:bg-ink-100 hover:bg-ink-50 hover:border-ink-300 touch-manipulation transition-all"
                                     aria-label="Reducir cantidad"
                                 >
                                     <Minus size={18} aria-hidden="true" />
@@ -306,33 +309,37 @@ export default function StockAdjustment() {
                                     value={quantity}
                                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                                     aria-label="Cantidad"
-                                    className="flex-1 min-w-0 border border-slate-300 text-center rounded-lg py-2 text-lg font-semibold"
+                                    className="input-field flex-1 min-w-0 text-center text-lg font-semibold"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setQuantity(quantity + 1)}
-                                    className="touch-target border border-slate-300 rounded-lg bg-white active:bg-slate-200 hover:bg-slate-100 touch-manipulation"
+                                    className="touch-target border border-ink-200 rounded-xl bg-surface active:bg-ink-100 hover:bg-ink-50 hover:border-ink-300 touch-manipulation transition-all"
                                     aria-label="Aumentar cantidad"
                                 >
                                     <Plus size={18} aria-hidden="true" />
                                 </button>
                             </div>
 
-                            <div className="mt-3 flex items-center justify-between text-sm">
-                                <span className="text-slate-500">Stock resultante</span>
-                                <span className={`font-bold text-base ${resultingStock < 0
-                                    ? 'text-rose-600'
-                                    : isEntry ? 'text-emerald-600' : 'text-rose-600'
-                                    }`}>
-                                    {resultingStock}
-                                    {resultingStock < 0 && ' · stock insuficiente'}
+                            <div className="mt-3 flex items-center justify-between gap-2 text-sm">
+                                <span className="text-ink-500">Stock resultante</span>
+                                <span className="flex items-center gap-2">
+                                    {resultingStock < 0 && (
+                                        <span className="badge-danger">Stock insuficiente</span>
+                                    )}
+                                    <span className={`font-bold text-base tabular-nums ${resultingStock < 0
+                                        ? 'text-danger-700'
+                                        : isEntry ? 'text-success-700' : 'text-danger-700'
+                                        }`}>
+                                        {resultingStock}
+                                    </span>
                                 </span>
                             </div>
 
                             <button
                                 type="button"
                                 onClick={handleAddItem}
-                                className="mt-3 w-full py-3 bg-sky-600 text-white rounded-lg font-semibold hover:bg-sky-700 active:bg-sky-800 touch-manipulation"
+                                className="btn-primary mt-3 w-full"
                             >
                                 Agregar a la lista
                             </button>
@@ -343,26 +350,29 @@ export default function StockAdjustment() {
 
             {/* Results list */}
             {!selectedProduct && (
-                <div className="mt-3 max-h-72 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 divide-y divide-slate-100">
+                <div className="mt-3 max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-ink-200/70 divide-y divide-ink-100 custom-scrollbar">
                     {filteredProducts.length === 0 ? (
-                        <p className="p-4 text-center text-sm text-slate-500">
-                            No se encontraron productos
-                        </p>
+                        <div className="empty-state">
+                            <div className="empty-icon">
+                                <Package className="h-6 w-6 text-ink-400" aria-hidden="true" />
+                            </div>
+                            <p className="text-sm font-medium text-ink-700">No se encontraron productos</p>
+                        </div>
                     ) : (
                         filteredProducts.map(product => (
                             <button
                                 key={product.id}
                                 type="button"
                                 onClick={() => handleSelectProduct(product)}
-                                className="w-full text-left p-3 hover:bg-slate-50 active:bg-slate-100 flex justify-between items-center gap-3 touch-manipulation"
+                                className="w-full text-left p-3 hover:bg-ink-50 active:bg-ink-100 flex justify-between items-center gap-3 touch-manipulation transition-colors"
                             >
                                 <span className="min-w-0">
-                                    <span className="block font-medium text-slate-900 truncate">{product.name}</span>
-                                    <span className="block text-xs text-slate-500">
+                                    <span className="block font-medium text-ink-900 truncate">{product.name}</span>
+                                    <span className="block text-xs text-ink-500">
                                         {product.sku ? `SKU ${product.sku} · ` : ''}Stock {Number(product.stock || 0)}
                                     </span>
                                 </span>
-                                <Plus className="h-5 w-5 text-sky-600 shrink-0" aria-hidden="true" />
+                                <Plus className="h-4 w-4 text-primary-600 shrink-0" aria-hidden="true" />
                             </button>
                         ))
                     )}
@@ -372,11 +382,11 @@ export default function StockAdjustment() {
     );
 
     const itemsListJSX = (
-        <section className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
-                <h2 className="font-semibold text-slate-900">
+        <section className="table-shell flex-1 min-h-0 flex flex-col">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-ink-200/70 shrink-0">
+                <h2 className="section-title">
                     Lista de {isEntry ? 'entrada' : 'salida'}
-                    <span className="ml-2 text-sm font-normal text-slate-500">
+                    <span className="ml-2 text-sm font-normal text-ink-500">
                         {adjustmentItems.length} {adjustmentItems.length === 1 ? 'artículo' : 'artículos'} · {totalUnits} pzas
                     </span>
                 </h2>
@@ -384,40 +394,45 @@ export default function StockAdjustment() {
                     <button
                         type="button"
                         onClick={handleClearItems}
-                        className="text-sm text-slate-500 hover:text-rose-600 px-2 py-1 rounded touch-manipulation"
+                        className="btn-ghost text-danger-600 hover:bg-danger-50 hover:text-danger-700"
                     >
                         Vaciar
                     </button>
                 )}
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="table-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 {adjustmentItems.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 py-10 px-4 text-center">
-                        <Package size={40} className="mb-2 opacity-30" aria-hidden="true" />
-                        <p className="text-sm">Aún no hay productos en esta lista</p>
-                        <p className="text-xs mt-1">Búscalos arriba y agrégalos</p>
+                    <div className="empty-state h-full">
+                        <div className="empty-icon">
+                            <Package className="h-6 w-6 text-ink-400" aria-hidden="true" />
+                        </div>
+                        <p className="text-sm font-medium text-ink-700">Aún no hay productos en esta lista</p>
+                        <p className="text-xs text-ink-500 mt-1">Búscalos arriba y agrégalos</p>
                     </div>
                 ) : (
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-ink-100">
                         {adjustmentItems.map((item, idx) => {
                             const before = Number(item.currentStock || 0);
                             const after = before + (isEntry ? Number(item.quantity) : -Number(item.quantity));
                             return (
-                                <li key={item.productId} className="p-3 flex items-center justify-between gap-3">
+                                <li key={item.productId} className="p-3 sm:p-3.5 flex items-center justify-between gap-3 hover:bg-ink-50/80 transition-colors">
                                     <div className="min-w-0">
-                                        <p className="font-medium text-slate-900 truncate">{item.name}</p>
-                                        <p className="text-xs text-slate-500">
+                                        <p className="font-medium text-ink-900 truncate">{item.name}</p>
+                                        <p className="text-xs text-ink-500 mt-0.5">
                                             {item.quantity} pzas ·{' '}
-                                            <span className={after < 0 ? 'text-rose-600 font-semibold' : ''}>
+                                            <span className={after < 0 ? 'text-danger-700 font-semibold tabular-nums' : 'tabular-nums'}>
                                                 {before} → {after}
                                             </span>
+                                            {after < 0 && (
+                                                <span className="badge-danger ml-1.5 align-middle">Stock insuficiente</span>
+                                            )}
                                         </p>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveItem(idx)}
-                                        className="touch-target text-rose-600 bg-rose-50 active:bg-rose-200 hover:bg-rose-100 rounded-lg touch-manipulation shrink-0"
+                                        className="touch-target text-danger-600 bg-danger-50 active:bg-danger-100 hover:bg-danger-100 rounded-xl touch-manipulation shrink-0 transition-colors"
                                         aria-label={`Quitar ${item.name} de la lista`}
                                     >
                                         <Trash2 size={18} aria-hidden="true" />
@@ -433,42 +448,42 @@ export default function StockAdjustment() {
 
 
     const detailsJSX = (
-        <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <section className="surface overflow-hidden">
             <button
                 type="button"
                 onClick={() => setDetailsOpen(next => !next)}
                 aria-expanded={detailsOpen}
                 aria-controls="movement-details"
-                className="w-full flex items-center justify-between px-4 py-3 text-left touch-manipulation hover:bg-slate-50"
+                className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 text-left touch-manipulation hover:bg-ink-50/80 transition-colors"
             >
                 <span className="min-w-0">
-                    <span className="block font-semibold text-slate-900">Datos del movimiento</span>
-                    <span className="block text-xs text-slate-500 truncate">
+                    <span className="block section-title">Datos del movimiento</span>
+                    <span className="block text-xs text-ink-500 truncate">
                         Ref. {reference || '—'} · {selectedDate}
                         {!isEntry && ` · ${sucursal || 'sin sucursal'}`}
                     </span>
                 </span>
                 {detailsOpen
-                    ? <ChevronUp className="h-5 w-5 text-slate-400 shrink-0" aria-hidden="true" />
-                    : <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" aria-hidden="true" />}
+                    ? <ChevronUp className="h-4 w-4 text-ink-400 shrink-0" aria-hidden="true" />
+                    : <ChevronDown className="h-4 w-4 text-ink-400 shrink-0" aria-hidden="true" />}
             </button>
 
             {detailsOpen && (
-                <div id="movement-details" className="px-4 pb-4 space-y-3 border-t border-slate-200 pt-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div id="movement-details" className="px-4 sm:px-5 pb-5 space-y-4 border-t border-ink-200/70 pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="mov-date" className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
+                            <label htmlFor="mov-date" className="input-label">Fecha</label>
                             <input
                                 id="mov-date"
                                 type="date"
                                 max={todayISO()}
-                                className="w-full border border-slate-300 rounded-lg p-3 text-base"
+                                className="input-field"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label htmlFor="mov-ref" className="block text-sm font-medium text-slate-700 mb-1">
+                            <label htmlFor="mov-ref" className="input-label">
                                 No. Referencia
                             </label>
                             <input
@@ -476,7 +491,7 @@ export default function StockAdjustment() {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="ej. FAC-1234"
-                                className="w-full border border-slate-300 rounded-lg p-3 text-base"
+                                className="input-field"
                                 value={reference}
                                 onChange={(e) => setReference(e.target.value)}
                             />
@@ -485,8 +500,8 @@ export default function StockAdjustment() {
 
                     {!isEntry && (
                         <div>
-                            <label htmlFor="mov-sucursal" className="block text-sm font-medium text-slate-700 mb-1">
-                                Sucursal destino <span className="text-rose-500">*</span>
+                            <label htmlFor="mov-sucursal" className="input-label">
+                                Sucursal destino <span className="text-danger-600">*</span>
                             </label>
                             {/* datalist keeps free-text behaviour while surfacing names
                                 already used, so typos don't split the catalog. */}
@@ -496,7 +511,7 @@ export default function StockAdjustment() {
                                 autoComplete="off"
                                 list="sucursales-usadas"
                                 placeholder="ej. Sucursal Centro"
-                                className="w-full border border-slate-300 rounded-lg p-3 text-base"
+                                className="input-field"
                                 value={sucursal}
                                 onChange={(e) => setSucursal(e.target.value)}
                             />
@@ -509,15 +524,15 @@ export default function StockAdjustment() {
                     )}
 
                     <div>
-                        <label htmlFor="mov-notes" className="block text-sm font-medium text-slate-700 mb-1">
-                            Notas <span className="text-slate-400 font-normal">(opcional)</span>
+                        <label htmlFor="mov-notes" className="input-label">
+                            Notas <span className="text-ink-400 font-normal normal-case tracking-normal">(opcional)</span>
                         </label>
                         <input
                             id="mov-notes"
                             type="text"
                             autoComplete="off"
                             placeholder="Comentarios adicionales..."
-                            className="w-full border border-slate-300 rounded-lg p-3 text-base"
+                            className="input-field"
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
@@ -528,13 +543,13 @@ export default function StockAdjustment() {
     );
 
     const actionBarJSX = (
-        <div className="sticky bottom-0 mt-4 pt-3 pb-safe bg-slate-50/95 backdrop-blur border-t border-slate-200">
+        <div className="sticky bottom-0 mt-4 pt-3 pb-safe bg-surface/95 backdrop-blur-sm border-t border-ink-200/70">
             <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
                 <button
                     type="button"
                     onClick={() => handleSubmit(false)}
                     disabled={processing || adjustmentItems.length === 0 || !isAdmin}
-                    className="py-3 px-5 rounded-lg font-semibold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 touch-manipulation flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-secondary py-3"
                 >
                     <Save className="h-4 w-4" aria-hidden="true" />
                     Sólo guardar
@@ -543,10 +558,7 @@ export default function StockAdjustment() {
                     type="button"
                     onClick={() => handleSubmit(true)}
                     disabled={processing || adjustmentItems.length === 0 || !isAdmin}
-                    className={`py-3 px-6 rounded-lg text-white font-semibold touch-manipulation flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${isEntry
-                        ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
-                        : 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800'
-                        }`}
+                    className={`btn-primary py-3 ${isEntry ? '' : 'btn-danger'}`}
                 >
                     {processing
                         ? <Loader className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -560,31 +572,31 @@ export default function StockAdjustment() {
     );
 
     return (
-        <div className="max-w-6xl mx-auto pb-4">
+        <div className="max-w-6xl mx-auto pb-4 space-y-6">
             <ReceiptPrinter ref={printerRef} />
 
             {/* Header */}
-            <header className="mb-5">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Movimientos de inventario</h1>
-                <p className="text-sm text-slate-500 mt-1">
-                    {isEntry
-                        ? 'Registra mercancía que llega al almacén.'
-                        : 'Registra mercancía que sale hacia una sucursal.'}
-                </p>
+            <header className="page-header">
+                <div>
+                    <h1 className="page-title">Movimientos de inventario</h1>
+                    <p className="page-subtitle">
+                        {isEntry
+                            ? 'Registra mercancía que llega al almacén.'
+                            : 'Registra mercancía que sale hacia una sucursal.'}
+                    </p>
+                </div>
             </header>
 
-            <div className="mb-4">
-                {typeToggleJSX}
-            </div>
+            {typeToggleJSX}
 
             {/* Post-save confirmation */}
             {lastSaved && (
-                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="rounded-2xl border border-success-200 bg-success-50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <p className="font-semibold text-emerald-900">
+                        <p className="font-semibold text-success-700">
                             {lastSaved.type === 'entry' ? 'Entrada' : 'Salida'} {lastSaved.reference} registrada
                         </p>
-                        <p className="text-sm text-emerald-700">
+                        <p className="text-sm text-success-700">
                             {lastSaved.items.length} {lastSaved.items.length === 1 ? 'artículo' : 'artículos'} · {lastSaved.units} pzas
                             {lastSaved.sucursal && ` · ${lastSaved.sucursal}`}
                         </p>
@@ -603,14 +615,14 @@ export default function StockAdjustment() {
                                     user: user.email
                                 });
                             }}
-                            className="py-2 px-4 rounded-lg border border-emerald-300 text-emerald-800 font-medium hover:bg-emerald-100 touch-manipulation"
+                            className="btn-secondary"
                         >
                             Imprimir
                         </button>
                         <button
                             type="button"
                             onClick={() => setLastSaved(null)}
-                            className="py-2 px-4 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 touch-manipulation"
+                            className="btn-primary"
                         >
                             Otro movimiento
                         </button>
@@ -618,7 +630,7 @@ export default function StockAdjustment() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                     {productPickerJSX}
                     {detailsJSX}

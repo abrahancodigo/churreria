@@ -1,16 +1,44 @@
-# React + Vite
+# Churrería POS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema web para llevar las ventas y el inventario de una churrería. La interfaz
+está pensada para usarse desde computadora, tableta o teléfono.
 
-Currently, two official plugins are available:
+## Qué incluye
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Punto de venta con carrito, control de existencias e impresión de recibos.
+- Catálogo de productos con precio, costo, SKU, imágenes y stock.
+- Registro de entradas y salidas de almacén.
+- Historial de transacciones, reportes y exportación a Excel.
+- Acceso con Firebase Authentication y datos en Cloud Firestore.
+- Permisos para administración y caja, además de tema claro y oscuro.
 
-## React Compiler
+## Desarrollo local
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Requiere Node.js y npm.
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Vite mostrará la dirección local en la terminal, normalmente
+`http://localhost:5173/`.
+
+## Comandos
+
+```bash
+npm run lint      # Revisa el código con ESLint
+npm run build     # Genera la versión de producción en dist/
+npm run preview   # Sirve localmente la última compilación
+```
+
+## Firebase
+
+La aplicación inicializa Firebase en `src/firebase.config.js`. Antes de usarla
+en otro entorno, configura allí los datos de la aplicación web de Firebase y
+confirma que Authentication, Firestore, las reglas y los índices correspondan
+al proyecto elegido. No publiques secretos de administración en el código del
+cliente.
+
+La guía de [despliegue a Firebase Hosting](GUIA_DESPLIEGUE_FIREBASE.md) explica
+cómo publicar la aplicación.

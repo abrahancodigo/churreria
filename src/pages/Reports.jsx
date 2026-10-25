@@ -4,6 +4,7 @@ import { collection, query, orderBy, getDocs, where, Timestamp } from "firebase/
 import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 import { Search, FileDown, Filter, BarChart3, Package, Eye, X } from "lucide-react";
 import { getProducts } from "../lib/db";
+import { formatCurrency } from "../lib/formatters";
 import { useToast } from "../context/ToastContext";
 import * as XLSX from "xlsx";
 
@@ -261,61 +262,93 @@ export default function Reports() {
     };
 
     return (
-        <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Reportes</h1>
+        <div className="space-y-6">
+            {/* Header */}
+            <header className="page-header">
+                <div>
+                    <h1 className="page-title">Reportes</h1>
+                </div>
+                {filteredTransactions.length > 0 && (
+                    <button onClick={exportToExcel} className="btn-primary self-start sm:self-auto">
+                        <FileDown className="h-4 w-4" />
+                        Exportar Excel
+                    </button>
+                )}
+            </header>
 
-            {/* Report Type Selector */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <div className="flex flex-wrap gap-2">
+            {/* Report Type Selector + Rango de fechas */}
+            <section className="surface p-4 sm:p-5 space-y-4">
+                <div className="segmented flex-wrap">
                     <button
                         onClick={() => setReportType("movements")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${reportType === "movements" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
+                        className={reportType === "movements" ? "segment segment-active inline-flex items-center gap-1.5" : "segment inline-flex items-center gap-1.5"}
+                        aria-pressed={reportType === "movements"}
                     >
-                        <BarChart3 className="h-5 w-5" />
+                        <BarChart3 className="h-4 w-4" />
                         Movimientos
                     </button>
                     <button
                         onClick={() => setReportType("cardex")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${reportType === "cardex" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
+                        className={reportType === "cardex" ? "segment segment-active inline-flex items-center gap-1.5" : "segment inline-flex items-center gap-1.5"}
+                        aria-pressed={reportType === "cardex"}
                     >
-                        <Package className="h-5 w-5" />
+                        <Package className="h-4 w-4" />
                         Cardex
                     </button>
                     <button
                         onClick={() => setReportType("sucursal")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${reportType === "sucursal" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
+                        className={reportType === "sucursal" ? "segment segment-active inline-flex items-center gap-1.5" : "segment inline-flex items-center gap-1.5"}
+                        aria-pressed={reportType === "sucursal"}
                     >
-                        <BarChart3 className="h-5 w-5" />
+                        <BarChart3 className="h-4 w-4" />
                         Por Sucursal
                     </button>
                 </div>
-            </div>
+
+                <div className="divider pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label htmlFor="report-date-from" className="input-label">Desde</label>
+                            <input
+                                id="report-date-from"
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="input-field"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="report-date-to" className="input-label">Hasta</label>
+                            <input
+                                id="report-date-to"
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="input-field"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <div className="flex items-center gap-2 mb-4">
-                    <Filter className="h-5 w-5 text-gray-500" />
-                    <h2 className="font-medium text-gray-900">Filtros</h2>
+            <section className="surface p-5">
+                <div className="flex items-center gap-2 mb-5">
+                    <div className="stat-icon bg-ink-100">
+                        <Filter className="h-[18px] w-[18px] text-ink-600" />
+                    </div>
+                    <h2 className="section-title">Filtros</h2>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
-                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
-                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
-                        <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label htmlFor="report-product" className="input-label">Producto</label>
+                        <select
+                            id="report-product"
+                            value={selectedProduct}
+                            onChange={(e) => setSelectedProduct(e.target.value)}
+                            className="input-field"
+                        >
                             <option value="all">Todos los productos</option>
                             {products.sort((a, b) => (a.sku || '').localeCompare(b.sku || '')).map(p => (
                                 <option key={p.id} value={p.id}>{p.sku ? `${p.sku} - ` : ''}{p.name}</option>
@@ -323,9 +356,13 @@ export default function Reports() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Movimiento</label>
-                        <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label htmlFor="report-type" className="input-label">Tipo de Movimiento</label>
+                        <select
+                            id="report-type"
+                            value={selectedType}
+                            onChange={(e) => setSelectedType(e.target.value)}
+                            className="input-field"
+                        >
                             <option value="all">Todos</option>
                             <option value="entry">Entradas</option>
                             <option value="exit">Salidas</option>
@@ -336,9 +373,13 @@ export default function Reports() {
 
                 {sucursales.length > 0 && (
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Sucursal</label>
-                        <select value={selectedSucursal} onChange={(e) => setSelectedSucursal(e.target.value)}
-                            className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label htmlFor="report-sucursal" className="input-label">Sucursal</label>
+                        <select
+                            id="report-sucursal"
+                            value={selectedSucursal}
+                            onChange={(e) => setSelectedSucursal(e.target.value)}
+                            className="input-field sm:max-w-xs"
+                        >
                             <option value="all">Todas las sucursales</option>
                             {sucursales.map(s => (<option key={s} value={s}>{s}</option>))}
                         </select>
@@ -346,47 +387,39 @@ export default function Reports() {
                 )}
 
                 <div className="flex flex-wrap gap-3">
-                    <button onClick={fetchTransactions} disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
-                        <Search className="h-5 w-5" />
+                    <button onClick={fetchTransactions} disabled={loading} className="btn-primary">
+                        <Search className="h-4 w-4" />
                         {loading ? "Buscando..." : "Generar Reporte"}
                     </button>
-                    {filteredTransactions.length > 0 && (
-                        <button onClick={exportToExcel}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
-                            <FileDown className="h-5 w-5" />
-                            Exportar Excel
-                        </button>
-                    )}
                 </div>
-            </div>
+            </section>
 
             {/* Cardex Warning */}
             {reportType === "cardex" && selectedProduct === "all" && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                    <p className="text-yellow-800">⚠️ Para ver el Cardex, selecciona un producto específico en los filtros.</p>
+                <div className="rounded-2xl border border-warning-200 bg-warning-50 p-4">
+                    <p className="text-sm text-warning-800">⚠️ Para ver el Cardex, selecciona un producto específico en los filtros.</p>
                 </div>
             )}
 
             {/* Results */}
             {filteredTransactions.length > 0 && (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                <section className="table-shell">
                     {reportType === "movements" ? (
                         <>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                            <div className="table-scroll custom-scrollbar">
+                                <table className="min-w-full">
+                                    <thead className="table-head sticky top-0 z-10">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Referencia</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Productos</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th>Referencia</th>
+                                            <th>Sucursal</th>
+                                            <th>Productos</th>
+                                            <th className="text-right">Total</th>
+                                            <th className="text-center">Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="table-body">
                                         {filteredTransactions.map(tx => {
                                             const total = tx.items?.reduce((acc, item) => {
                                                 const currentProduct = products.find(p => p.id === item.productId);
@@ -396,24 +429,27 @@ export default function Reports() {
                                                 return acc + (unitValue * Number(item.quantity));
                                             }, 0) || 0;
                                             return (
-                                                <tr key={tx.id} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-3 text-sm text-gray-900">{tx.timestamp?.toDate ? format(tx.timestamp.toDate(), 'dd/MM/yyyy') : '--'}</td>
-                                                    <td className="px-4 py-3">
-                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${tx.type === 'entry' ? 'bg-blue-100 text-blue-800' : tx.type === 'sale' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                <tr key={tx.id}>
+                                                    <td className="whitespace-nowrap tabular-nums text-ink-700">
+                                                        {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), 'dd/MM/yyyy') : '--'}
+                                                    </td>
+                                                    <td>
+                                                        <span className={tx.type === 'entry' ? 'badge-primary' : tx.type === 'sale' ? 'badge-success' : 'badge-warning'}>
                                                             {getTypeLabel(tx.type)}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-blue-600 font-medium">{tx.reference || '--'}</td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600">{getSucursal(tx.notes) || '--'}</td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600">{tx.items?.length || 0} producto(s)</td>
-                                                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">${total.toFixed(2)}</td>
-                                                    <td className="px-4 py-3 text-center">
+                                                    <td className="whitespace-nowrap font-medium text-primary-700">{tx.reference || '--'}</td>
+                                                    <td className="whitespace-nowrap text-ink-600">{getSucursal(tx.notes) || '--'}</td>
+                                                    <td className="whitespace-nowrap tabular-nums">{tx.items?.length || 0} producto(s)</td>
+                                                    <td className="whitespace-nowrap text-right font-semibold text-ink-900 tabular-nums">{formatCurrency(total)}</td>
+                                                    <td className="text-center">
                                                         <button
                                                             onClick={() => setViewingTransaction(tx)}
-                                                            className="text-blue-600 hover:text-blue-800 p-1"
+                                                            className="btn-icon h-9 w-9 text-ink-500 hover:text-primary-700 hover:bg-primary-50 transition-colors"
                                                             title="Ver detalles"
+                                                            aria-label={`Ver detalles de ${getTypeLabel(tx.type)}`}
                                                         >
-                                                            <Eye className="h-5 w-5" />
+                                                            <Eye className="h-4 w-4" />
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -422,56 +458,69 @@ export default function Reports() {
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="bg-gray-50 px-4 py-4 border-t">
-                                <div className="flex flex-wrap justify-end gap-4 text-sm">
-                                    <div><span className="text-gray-500">Entradas:</span> <span className="font-bold text-blue-600">${totals.totalEntradas.toFixed(2)}</span></div>
-                                    <div><span className="text-gray-500">Salidas:</span> <span className="font-bold text-yellow-600">${totals.totalSalidas.toFixed(2)}</span></div>
-                                    <div><span className="text-gray-500">Valor Inventario Actual:</span> <span className="font-bold text-green-600">${totals.inventoryValue.toFixed(2)}</span></div>
+                            <div className="border-t border-ink-200/70 p-4">
+                                <div className="surface-muted p-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-6">
+                                        <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
+                                            <span className="text-xs text-ink-500">Entradas:</span>
+                                            <span className="ml-2 text-base font-bold text-success-700 tabular-nums">{formatCurrency(totals.totalEntradas)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
+                                            <span className="text-xs text-ink-500">Salidas:</span>
+                                            <span className="ml-2 text-base font-bold text-warning-700 tabular-nums">{formatCurrency(totals.totalSalidas)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
+                                            <span className="text-xs text-ink-500">Valor Inventario Actual:</span>
+                                            <span className="ml-2 text-base font-bold text-primary-700 tabular-nums">{formatCurrency(totals.inventoryValue)}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </>
                     ) : reportType === "cardex" && selectedProduct !== "all" ? (
                         <>
-                            <div className="p-4 border-b bg-gray-50">
-                                <h3 className="font-bold text-gray-900">Cardex: {products.find(p => p.id === selectedProduct)?.name}</h3>
+                            <div className="card-header">
+                                <h3 className="section-title">Cardex: {products.find(p => p.id === selectedProduct)?.name}</h3>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                            <div className="table-scroll custom-scrollbar">
+                                <table className="min-w-full">
+                                    <thead className="table-head sticky top-0 z-10">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Referencia</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Entrada</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Salida</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th>Referencia</th>
+                                            <th>Sucursal</th>
+                                            <th className="text-right">Entrada</th>
+                                            <th className="text-right">Salida</th>
+                                            <th className="text-right">Saldo</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="table-body">
                                         {cardexData.map((row, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 text-sm text-gray-900">{row.fecha}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${row.tipo === 'Entrada' ? 'bg-blue-100 text-blue-800' : row.tipo === 'Venta' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                            <tr key={idx}>
+                                                <td className="whitespace-nowrap tabular-nums">{row.fecha}</td>
+                                                <td>
+                                                    <span className={row.tipo === 'Entrada' ? 'badge-primary' : row.tipo === 'Venta' ? 'badge-success' : 'badge-warning'}>
                                                         {row.tipo}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-blue-600 font-medium">{row.referencia || '--'}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">{row.sucursal || '--'}</td>
-                                                <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{row.entrada > 0 ? `+${row.entrada}` : ''}</td>
-                                                <td className="px-4 py-3 text-sm text-right font-medium text-red-600">{row.salida > 0 ? `-${row.salida}` : ''}</td>
-                                                <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">{row.saldo}</td>
+                                                <td className="whitespace-nowrap font-medium text-primary-700">{row.referencia || '--'}</td>
+                                                <td className="whitespace-nowrap text-ink-600">{row.sucursal || '--'}</td>
+                                                <td className="text-right font-semibold text-success-700 tabular-nums">{row.entrada > 0 ? `+${row.entrada}` : ''}</td>
+                                                <td className="text-right font-semibold text-danger-700 tabular-nums">{row.salida > 0 ? `-${row.salida}` : ''}</td>
+                                                <td className="text-right font-bold text-ink-900 tabular-nums">{row.saldo}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                             {cardexData.length > 0 && (
-                                <div className="bg-gray-50 px-4 py-4 border-t">
-                                    <div className="flex justify-end">
-                                        <span className="text-gray-500">Saldo Final:</span>
-                                        <span className="ml-2 font-bold text-lg">{cardexData[cardexData.length - 1]?.saldo || 0}</span>
+                                <div className="border-t border-ink-200/70 p-4">
+                                    <div className="surface-muted p-4 flex justify-end">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-ink-500">Saldo Final:</span>
+                                            <span className="text-lg font-bold text-ink-900 tabular-nums">{cardexData[cardexData.length - 1]?.saldo || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -479,53 +528,52 @@ export default function Reports() {
                     ) : reportType === "sucursal" ? (
                         /* Sucursal Summary Table */
                         <>
-                            <div className="p-4 border-b bg-gray-50">
-                                <h3 className="font-bold text-gray-900">Resumen por Sucursal</h3>
+                            <div className="card-header">
+                                <h3 className="section-title">Resumen por Sucursal</h3>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                            <div className="table-scroll custom-scrollbar">
+                                <table className="min-w-full">
+                                    <thead className="table-head sticky top-0 z-10">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sucursal</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Entradas (Uds)</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Entradas ($)</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Salidas (Uds)</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Salidas ($)</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Diferencia ($)</th>
+                                            <th>Sucursal</th>
+                                            <th className="text-right">Entradas (Uds)</th>
+                                            <th className="text-right">Entradas ($)</th>
+                                            <th className="text-right">Salidas (Uds)</th>
+                                            <th className="text-right">Salidas ($)</th>
+                                            <th className="text-right">Diferencia ($)</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="table-body">
                                         {sucursalData.map((row, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.sucursal}</td>
-                                                <td className="px-4 py-3 text-sm text-right text-blue-600 font-medium">+{row.entradasUnidades}</td>
-                                                <td className="px-4 py-3 text-sm text-right text-blue-600">${row.entradasMonto.toFixed(2)}</td>
-                                                <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">-{row.salidasUnidades}</td>
-                                                <td className="px-4 py-3 text-sm text-right text-red-600">${row.salidasMonto.toFixed(2)}</td>
-                                                <td className={`px-4 py-3 text-sm text-right font-bold ${(row.entradasMonto - row.salidasMonto) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    ${(row.entradasMonto - row.salidasMonto).toFixed(2)}
+                                            <tr key={idx}>
+                                                <td className="whitespace-nowrap font-medium text-ink-900">{row.sucursal}</td>
+                                                <td className="text-right font-semibold text-success-700 tabular-nums">+{row.entradasUnidades}</td>
+                                                <td className="text-right text-success-700 tabular-nums">{formatCurrency(row.entradasMonto)}</td>
+                                                <td className="text-right font-semibold text-danger-700 tabular-nums">-{row.salidasUnidades}</td>
+                                                <td className="text-right text-danger-700 tabular-nums">{formatCurrency(row.salidasMonto)}</td>
+                                                <td className={`text-right font-bold tabular-nums ${(row.entradasMonto - row.salidasMonto) >= 0 ? 'text-success-700' : 'text-danger-700'}`}>
+                                                    {formatCurrency(row.entradasMonto - row.salidasMonto)}
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
-                                    <tfoot className="bg-gray-100">
+                                    <tfoot className="bg-ink-100/70 border-t border-ink-200">
                                         <tr>
-                                            <td className="px-4 py-3 text-sm font-bold text-gray-900">TOTAL</td>
-                                            <td className="px-4 py-3 text-sm text-right font-bold text-blue-600">
+                                            <td className="px-4 py-3 text-sm font-bold text-ink-900">TOTAL</td>
+                                            <td className="px-4 py-3 text-right font-bold text-success-700 tabular-nums">
                                                 +{sucursalData.reduce((acc, r) => acc + r.entradasUnidades, 0)}
                                             </td>
-                                            <td className="px-4 py-3 text-sm text-right font-bold text-blue-600">
-                                                ${sucursalData.reduce((acc, r) => acc + r.entradasMonto, 0).toFixed(2)}
+                                            <td className="px-4 py-3 text-right font-bold text-success-700 tabular-nums">
+                                                {formatCurrency(sucursalData.reduce((acc, r) => acc + r.entradasMonto, 0))}
                                             </td>
-                                            <td className="px-4 py-3 text-sm text-right font-bold text-red-600">
+                                            <td className="px-4 py-3 text-right font-bold text-danger-700 tabular-nums">
                                                 -{sucursalData.reduce((acc, r) => acc + r.salidasUnidades, 0)}
                                             </td>
-                                            <td className="px-4 py-3 text-sm text-right font-bold text-red-600">
-                                                ${sucursalData.reduce((acc, r) => acc + r.salidasMonto, 0).toFixed(2)}
+                                            <td className="px-4 py-3 text-right font-bold text-danger-700 tabular-nums">
+                                                {formatCurrency(sucursalData.reduce((acc, r) => acc + r.salidasMonto, 0))}
                                             </td>
-                                            <td className={`px-4 py-3 text-sm text-right font-bold ${(sucursalData.reduce((acc, r) => acc + r.entradasMonto - r.salidasMonto, 0)) >= 0 ? 'text-green-600' : 'text-red-600'
-                                                }`}>
-                                                ${sucursalData.reduce((acc, r) => acc + r.entradasMonto - r.salidasMonto, 0).toFixed(2)}
+                                            <td className={`px-4 py-3 text-right font-bold tabular-nums ${(sucursalData.reduce((acc, r) => acc + r.entradasMonto - r.salidasMonto, 0)) >= 0 ? 'text-success-700' : 'text-danger-700'}`}>
+                                                {formatCurrency(sucursalData.reduce((acc, r) => acc + r.entradasMonto - r.salidasMonto, 0))}
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -533,89 +581,110 @@ export default function Reports() {
                             </div>
                         </>
                     ) : null}
-                </div>
+                </section>
             )}
 
             {transactions.length === 0 && !loading && (
-                <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                    <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Selecciona un rango de fechas y presiona "Generar Reporte" para ver los resultados.</p>
+                <div className="surface empty-state">
+                    <div className="empty-icon">
+                        <BarChart3 className="h-5 w-5 text-ink-400" />
+                    </div>
+                    <p className="text-sm font-medium text-ink-700">Selecciona un rango de fechas y presiona "Generar Reporte" para ver los resultados.</p>
                 </div>
             )}
 
             {/* Transaction Detail Modal */}
             {viewingTransaction && (
-                <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setViewingTransaction(null)}>
-                    <div className="flex items-center justify-center min-h-screen p-4">
-                        <div className="fixed inset-0 bg-black bg-opacity-50"></div>
-                        <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">
-                                        Detalle de {getTypeLabel(viewingTransaction.type)}
-                                    </h3>
-                                    <p className="text-sm text-gray-500">
-                                        {viewingTransaction.timestamp?.toDate ? format(viewingTransaction.timestamp.toDate(), 'dd/MM/yyyy') : ''}
-                                        {viewingTransaction.reference && ` • Ref: ${viewingTransaction.reference}`}
-                                    </p>
-                                </div>
-                                <button onClick={() => setViewingTransaction(null)} className="text-gray-400 hover:text-gray-600">
-                                    <X className="h-6 w-6" />
-                                </button>
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/60 p-4 animate-fade-in"
+                    onClick={() => setViewingTransaction(null)}
+                >
+                    <div
+                        className="modal-panel w-full max-w-2xl max-h-[90dvh] overflow-y-auto animate-scale-in"
+                        onClick={e => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Detalle de ${getTypeLabel(viewingTransaction.type)}`}
+                    >
+                        <div className="card-header">
+                            <div>
+                                <h3 className="section-title">
+                                    Detalle de {getTypeLabel(viewingTransaction.type)}
+                                </h3>
+                                <p className="text-xs text-ink-500 mt-1">
+                                    {viewingTransaction.timestamp?.toDate ? format(viewingTransaction.timestamp.toDate(), 'dd/MM/yyyy') : ''}
+                                    {viewingTransaction.reference && ` • Ref: ${viewingTransaction.reference}`}
+                                </p>
                             </div>
-                            <div className="p-6">
-                                {getSucursal(viewingTransaction.notes) && (
-                                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                                        <span className="text-sm font-medium text-blue-800">Sucursal: {getSucursal(viewingTransaction.notes)}</span>
-                                    </div>
-                                )}
-                                <table className="min-w-full divide-y divide-gray-200 mb-4">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Precio</th>
-                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {viewingTransaction.items?.map((item, idx) => {
-                                            const currentProduct = products.find(p => p.id === item.productId);
-                                            const unitValue = (viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit')
-                                                ? (currentProduct ? Number(currentProduct.cost || 0) : Number(item.cost || 0))
-                                                : (currentProduct ? Number(currentProduct.price) : Number(item.price || 0));
-                                            const subtotal = unitValue * Number(item.quantity);
-                                            return (
-                                                <tr key={idx}>
-                                                    <td className="px-4 py-2 text-sm text-gray-900">{item.name}</td>
-                                                    <td className="px-4 py-2 text-sm text-center text-gray-900">{item.quantity}</td>
-                                                    <td className="px-4 py-2 text-sm text-right text-gray-600">${unitValue.toFixed(2)}</td>
-                                                    <td className="px-4 py-2 text-sm text-right font-medium text-gray-900">${subtotal.toFixed(2)}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                                <div className="flex justify-end border-t pt-4">
-                                    <div className="text-right">
-                                        <span className="text-gray-500">Total:</span>
-                                        <span className="ml-2 text-xl font-bold text-gray-900">
-                                            ${viewingTransaction.items?.reduce((acc, item) => {
+                            <button
+                                onClick={() => setViewingTransaction(null)}
+                                className="btn-icon h-9 w-9 -mr-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors"
+                                title="Cerrar"
+                                aria-label="Cerrar"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-5">
+                            {getSucursal(viewingTransaction.notes) && (
+                                <div className="mb-5 p-3 bg-primary-50 border border-primary-200 rounded-2xl">
+                                    <span className="text-sm font-medium text-primary-800">Sucursal: {getSucursal(viewingTransaction.notes)}</span>
+                                </div>
+                            )}
+
+                            <div className="table-shell mb-5">
+                                <div className="table-scroll custom-scrollbar">
+                                    <table className="min-w-full">
+                                        <thead className="table-head">
+                                            <tr>
+                                                <th>Producto</th>
+                                                <th className="text-center">Cantidad</th>
+                                                <th className="text-right">Precio</th>
+                                                <th className="text-right">Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="table-body">
+                                            {viewingTransaction.items?.map((item, idx) => {
                                                 const currentProduct = products.find(p => p.id === item.productId);
                                                 const unitValue = (viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit')
                                                     ? (currentProduct ? Number(currentProduct.cost || 0) : Number(item.cost || 0))
                                                     : (currentProduct ? Number(currentProduct.price) : Number(item.price || 0));
-                                                return acc + (unitValue * Number(item.quantity));
-                                            }, 0).toFixed(2) || '0.00'}
-                                        </span>
-                                    </div>
+                                                const subtotal = unitValue * Number(item.quantity);
+                                                return (
+                                                    <tr key={idx}>
+                                                        <td className="font-medium text-ink-900">{item.name}</td>
+                                                        <td className="text-center tabular-nums">{item.quantity}</td>
+                                                        <td className="text-right text-ink-600 tabular-nums">{formatCurrency(unitValue)}</td>
+                                                        <td className="text-right font-semibold text-ink-900 tabular-nums">{formatCurrency(subtotal)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
-                                {viewingTransaction.notes && (
-                                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                                        <p className="text-sm text-gray-600"><span className="font-medium">Notas:</span> {viewingTransaction.notes}</p>
-                                    </div>
-                                )}
                             </div>
+
+                            <div className="surface-muted p-4">
+                                <div className="text-right">
+                                    <span className="text-xs text-ink-500">Total:</span>
+                                    <span className="ml-2 text-xl font-bold text-ink-900 tabular-nums">
+                                        {formatCurrency(viewingTransaction.items?.reduce((acc, item) => {
+                                            const currentProduct = products.find(p => p.id === item.productId);
+                                            const unitValue = (viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit')
+                                                ? (currentProduct ? Number(currentProduct.cost || 0) : Number(item.cost || 0))
+                                                : (currentProduct ? Number(currentProduct.price) : Number(item.price || 0));
+                                            return acc + (unitValue * Number(item.quantity));
+                                        }, 0))}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {viewingTransaction.notes && (
+                                <div className="mt-4 surface-muted p-3.5">
+                                    <p className="text-sm text-ink-600"><span className="font-medium text-ink-800">Notas:</span> {viewingTransaction.notes}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
