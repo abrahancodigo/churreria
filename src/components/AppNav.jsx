@@ -98,11 +98,17 @@ export function SidebarNav({ onNavigate }) {
     );
 }
 
-/** Navegacion inferior en movil: tres accesos, el central destacado. */
+/**
+ * Navegacion inferior en movil: tres accesos, el central destacado.
+ *
+ * Es un hijo en flujo al final de la columna del Layout (no flotante): el
+ * scroll ocurre en el area de contenido contigua, asi que la barra no puede
+ * moverse al desplazarse la pantalla, sin importar el modulo activo.
+ */
 export function BottomNav() {
     const location = useLocation();
     return (
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-line px-2 pt-1.5 shadow-[0_-6px_20px_-12px_rgba(15,23,42,0.35)] [transform:translateZ(0)]"
+        <nav className="md:hidden shrink-0 relative z-40 bg-white border-t border-line px-2 pt-1.5 shadow-[0_-6px_20px_-12px_rgba(15,23,42,0.35)]"
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
             <div className="grid grid-cols-3 items-end gap-1">
                 {BOTTOM_TABS.map((tab) => {
