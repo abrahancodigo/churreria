@@ -8,6 +8,7 @@ import {
 import { auth, db } from "../firebase.config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { AuthContext } from "./auth-context";
+import Splash from "../components/Splash";
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -100,7 +101,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => signOut(auth);
 
-    if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    if (loading) return <Splash label="Verificando sesión…" />;
 
     return (
         <AuthContext.Provider value={{

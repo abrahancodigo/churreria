@@ -1,20 +1,13 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useRole } from "../hooks/useRole";
+import Splash from "./Splash";
 
 export default function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-                <div className="w-full max-w-sm space-y-3">
-                    <div className="skeleton h-8 w-2/3" />
-                    <div className="skeleton h-24" />
-                    <div className="skeleton h-24" />
-                </div>
-            </div>
-        );
+        return <Splash label="Verificando sesión…" />;
     }
 
     if (!user) {
