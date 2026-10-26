@@ -1,27 +1,7 @@
-import { useState, useEffect } from "react";
-import { db } from "../firebase.config";
-import { doc, getDoc } from "firebase/firestore";
+import { useContext } from "react";
+import { CompanyContext } from "../context/company-context";
 
-let cached = null;
-let promise = null;
-
+/** Datos de empresa compartidos; no inicia lecturas por su cuenta. */
 export function useCompany() {
-    const [company, setCompany] = useState(cached || { name: "Churrería POS", address: "", logoUrl: "" });
-
-    useEffect(() => {
-        if (cached) return;
-        if (!promise) {
-            promise = getDoc(doc(db, "settings", "company"))
-                .then((snap) => {
-                    cached = snap.exists()
-                        ? { name: "Churrería POS", address: "", logoUrl: "", ...snap.data() }
-                        : { name: "Churrería POS", address: "", logoUrl: "" };
-                    return cached;
-                })
-                .catch(() => ({ name: "Churrería POS", address: "", logoUrl: "" }));
-        }
-        promise.then(setCompany);
-    }, []);
-
-    return company;
+    return useContext(CompanyContext).companyInfo;
 }

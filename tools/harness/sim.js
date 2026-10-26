@@ -40,8 +40,26 @@ export const transactions = [
 const ok = () => Promise.resolve();
 const snapDoc = (data) => ({ exists: () => Boolean(data), data: () => data, id: "doc" });
 const docs = (list) => ({ docs: list.map((d) => ({ id: d.id, data: () => d })), size: list.length, empty: list.length === 0 });
+const company = { name: "Churrería Porfirio", address: "Av. Principal 123, San Salvador", logoUrl: "" };
 
 const colName = (ref) => ref?.__col || ref?.__doc;
+
+const snapshotFor = (ref) => {
+    const col = colName(ref);
+    if (ref?.__doc) {
+        const data = col === "users"
+            ? profile
+            : col === "settings"
+                ? company
+                : col === "counters"
+                    ? { entry: 7, exit: 12 }
+                    : undefined;
+        return { ...snapDoc(data), metadata: { fromCache: false } };
+    }
+
+    const data = col === "transactions" ? transactions : col === "products" ? products : [];
+    return { ...docs(data), metadata: { fromCache: false } };
+};
 
 export const Firestore = {
     collection: (_db, name) => ({ __col: name }),
@@ -51,10 +69,13 @@ export const Firestore = {
     orderBy: () => ({}),
     limit: () => ({}),
     Timestamp: { fromDate: (d) => ({ toDate: () => d }) },
-    onSnapshot: (ref, cb) => {
-        const col = colName(ref);
-        const data = col === "transactions" ? transactions : col === "products" ? products : [];
-        setTimeout(() => cb(docs(data)), 10);
+    onSnapshot: (ref, optionsOrCallback, callbackOrError, errorCallback) => {
+        const callback = typeof optionsOrCallback === "function"
+            ? optionsOrCallback
+            : typeof callbackOrError === "function"
+                ? callbackOrError
+                : errorCallback;
+        setTimeout(() => callback(snapshotFor(ref)), 10);
         return () => {};
     },
     getDocs: async (ref) => {
@@ -64,13 +85,7 @@ export const Firestore = {
         if (col === "users") return docs([profile]);
         return docs([]);
     },
-    getDoc: async (ref) => {
-        const col = colName(ref);
-        if (col === "users") return snapDoc(profile);
-        if (col === "settings") return snapDoc({ name: "Churrería Porfirio", address: "Av. Principal 123, San Salvador", logoUrl: "" });
-        if (col === "counters") return snapDoc({ entry: 7, exit: 12 });
-        return snapDoc(undefined);
-    },
+    getDoc: async (ref) => snapshotFor(ref),
     setDoc: ok, updateDoc: ok, deleteDoc: ok, addDoc: ok,
     writeBatch: () => ({ set: ok, update: ok, delete: ok, commit: ok }),
     runTransaction: async (_db, fn) => fn({

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     onAuthStateChanged,
     signInWithEmailAndPassword,
@@ -13,39 +13,88 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [profileError, setProfileError] = useState(null);
+    const profileRequest = useRef(0);
+    const profileUid = useRef(null);
+    const profileRequestUid = useRef(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        let active = true;
+
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (!active) return;
+
             setUser(currentUser);
-            if (currentUser) {
-                try {
-                    const docRef = doc(db, "users", currentUser.uid);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        setUserData(docSnap.data());
-                    }
-                } catch (error) {
-                    console.error("Error fetching user data:", error);
-                }
-            } else {
-                setUserData(null);
-            }
             setLoading(false);
+
+            if (!currentUser) {
+                profileRequest.current += 1;
+                profileUid.current = null;
+                profileRequestUid.current = null;
+                setUserData(null);
+                setProfileError(null);
+                setProfileLoading(false);
+                return;
+            }
+
+            // Los refrescos de token vuelven a emitir el mismo usuario. No hace
+            // falta descargar de nuevo su perfil ni ocultar la interfaz.
+            if (profileUid.current === currentUser.uid || profileRequestUid.current === currentUser.uid) {
+                return;
+            }
+
+            const requestId = ++profileRequest.current;
+            profileRequestUid.current = currentUser.uid;
+            setUserData(null);
+            setProfileError(null);
+            setProfileLoading(true);
+
+            getDoc(doc(db, "users", currentUser.uid))
+                .then((docSnap) => {
+                    if (!active || requestId !== profileRequest.current) return;
+                    profileUid.current = currentUser.uid;
+                    setUserData(docSnap.exists() ? docSnap.data() : null);
+                })
+                .catch((error) => {
+                    if (!active || requestId !== profileRequest.current) return;
+                    console.error("Error fetching user data:", error);
+                    setProfileError(error);
+                })
+                .finally(() => {
+                    if (!active || requestId !== profileRequest.current) return;
+                    profileRequestUid.current = null;
+                    setProfileLoading(false);
+                });
         });
-        return unsubscribe;
+
+        return () => {
+            active = false;
+            unsubscribe();
+        };
     }, []);
 
     const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
 
     const register = async (email, password, name, role = "cashier") => {
         const res = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, "users", res.user.uid), {
+        const profile = {
             uid: res.user.uid,
             email,
             name,
             role,
             createdAt: new Date()
-        });
+        };
+        await setDoc(doc(db, "users", res.user.uid), profile);
+
+        // El listener de autenticacion puede leer el perfil antes de que termine
+        // este setDoc. Invalidamos esa lectura y dejamos el perfil confirmado.
+        profileRequest.current += 1;
+        profileUid.current = res.user.uid;
+        profileRequestUid.current = null;
+        setUserData(profile);
+        setProfileError(null);
+        setProfileLoading(false);
         return res;
     };
 
@@ -54,7 +103,16 @@ export const AuthProvider = ({ children }) => {
     if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
     return (
-        <AuthContext.Provider value={{ user, userData, login, register, logout }}>
+        <AuthContext.Provider value={{
+            user,
+            userData,
+            loading,
+            profileLoading,
+            profileError,
+            login,
+            register,
+            logout
+        }}>
             {children}
         </AuthContext.Provider>
     );

@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { CompanyProvider } from "./context/CompanyContext";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -19,24 +20,26 @@ function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center text-sm font-bold text-ink-3">Cargando...</div>}>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+        <CompanyProvider>
+          <BrowserRouter>
+            <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center text-sm font-bold text-ink-3">Cargando...</div>}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/stock-adjustments" element={<RequireAdmin><StockAdjustment /></RequireAdmin>} />
-              <Route path="/reports" element={<RequireAdmin><Reports /></RequireAdmin>} />
-              <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
-              <Route path="/backup" element={<RequireAdmin><Backup /></RequireAdmin>} />
-            </Route>
-          </Routes>
-          </Suspense>
-        </BrowserRouter>
+                <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/transactions" element={<Transactions />} />
+                  <Route path="/stock-adjustments" element={<RequireAdmin><StockAdjustment /></RequireAdmin>} />
+                  <Route path="/reports" element={<RequireAdmin><Reports /></RequireAdmin>} />
+                  <Route path="/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
+                  <Route path="/backup" element={<RequireAdmin><Backup /></RequireAdmin>} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </CompanyProvider>
       </AuthProvider>
     </ToastProvider>
   );

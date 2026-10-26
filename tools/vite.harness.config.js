@@ -22,6 +22,9 @@ export default {
                     export const initializeApp = () => ({ options: { projectId: "churreria-por" } });
                     export const getAuth = () => sim.Fire.auth;
                     export const getFirestore = () => sim.Fire.db;
+                    export const initializeFirestore = () => sim.Fire.db;
+                    export const persistentLocalCache = () => ({});
+                    export const persistentMultipleTabManager = () => ({});
                     export const onAuthStateChanged = (a, cb) => {
                         const t = setTimeout(() => cb(sim.user), 5);
                         return () => clearTimeout(t);

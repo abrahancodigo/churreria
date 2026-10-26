@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { db } from "../firebase.config";
-import { collection, query, orderBy, getDocs, where, Timestamp } from "firebase/firestore";
-import { format, startOfDay, endOfDay, parseISO } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 import { Search, FileDown, BarChart3, Package, Eye, Printer } from "lucide-react";
 import { getProducts } from "../lib/db";
 import { getSucursal, buildReceiptHtml, printHtmlDocument, openHtmlDocument } from "../lib/receipt";
@@ -10,12 +8,14 @@ import { useCompany } from "../hooks/useCompany";
 import { PageHeader, EmptyState, Sheet } from "../components/ui";
 import { TypeBadge } from "../components/ui";
 import { typeLabel } from "../components/TypeBadge";
+import { getReportTransactions, REPORT_ROW_LIMIT } from "../services/reportService";
 
 export default function Reports() {
     const [transactions, setTransactions] = useState([]);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
+    const [truncated, setTruncated] = useState(false);
     const [viewingTransaction, setViewingTransaction] = useState(null);
     const { addToast } = useToast();
     const company = useCompany();
@@ -39,8 +39,8 @@ export default function Reports() {
     };
 
     const [reportType, setReportType] = useState("movements");
-    const [dateFrom, setDateFrom] = useState("");
-    const [dateTo, setDateTo] = useState("");
+    const [dateFrom, setDateFrom] = useState(() => format(startOfMonth(new Date()), "yyyy-MM-dd"));
+    const [dateTo, setDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
     const [selectedProduct, setSelectedProduct] = useState("all");
     const [selectedSucursal, setSelectedSucursal] = useState("all");
     const [selectedReason, setSelectedReason] = useState("all");
@@ -72,25 +72,32 @@ export default function Reports() {
     }, [transactions]);
 
     const fetchTransactions = async () => {
+        if (!dateFrom || !dateTo) {
+            addToast("Selecciona la fecha inicial y la fecha final.", "error");
+            return;
+        }
+        if (dateFrom > dateTo) {
+            addToast("La fecha inicial no puede ser posterior a la final.", "error");
+            return;
+        }
+
         setLoading(true);
         try {
-            const constraints = [];
-            if (dateFrom) constraints.push(where("timestamp", ">=", Timestamp.fromDate(startOfDay(parseISO(dateFrom)))));
-            if (dateTo) constraints.push(where("timestamp", "<=", Timestamp.fromDate(endOfDay(parseISO(dateTo)))));
-            const q = constraints.length > 0
-                ? query(collection(db, "transactions"), ...constraints, orderBy("timestamp", "desc"))
-                : query(collection(db, "transactions"), orderBy("timestamp", "desc"));
-            const snapshot = await getDocs(q);
-            setTransactions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+            const result = await getReportTransactions({ dateFrom, dateTo });
+            setTransactions(result.transactions);
+            setTruncated(result.truncated);
             setSearched(true);
-            addToast(`Se encontraron ${snapshot.docs.length} transacciones`);
+            addToast(
+                result.truncated
+                    ? `Se muestran las primeras ${result.limit} transacciones. Reduce el rango para ver el resto.`
+                    : `Se encontraron ${result.transactions.length} transacciones`
+            );
         } catch (error) {
             addToast("Error al buscar: " + error.message, "error");
         } finally {
             setLoading(false);
         }
     };
-
     const filteredTransactions = useMemo(() => {
         return transactions.filter((tx) => {
             if (selectedType !== "all" && tx.type !== selectedType) return false;
@@ -288,6 +295,13 @@ export default function Reports() {
                 )}
             </div>
 
+            {truncated && (
+                <div className="card !p-4 mb-3 !border-amber-300 !bg-amber-50">
+                    <p className="text-sm font-bold text-amber-800">
+                        Se muestran las primeras {REPORT_ROW_LIMIT} transacciones. Reduce el rango de fechas para consultar el resto.
+                    </p>
+                </div>
+            )}
             {reportType === "cardex" && selectedProduct === "all" && searched && (
                 <div className="card !p-4 mb-3 !border-amber-300 !bg-amber-50">
                     <p className="text-sm font-bold text-amber-800">⚠️ Para ver el cardex, elige un producto en los filtros.</p>

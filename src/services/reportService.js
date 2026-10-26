@@ -2,33 +2,44 @@ import { db } from "../firebase.config";
 import {
     collection,
     getDocs,
+    limit,
     orderBy,
     query,
-    where,
-    Timestamp
+    Timestamp,
+    where
 } from "firebase/firestore";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 const transactionsRef = collection(db, "transactions");
+export const REPORT_ROW_LIMIT = 1000;
 
+/** Consulta acotada por fechas; evita descargar todo el historial. */
 export const getReportTransactions = async ({ dateFrom, dateTo }) => {
-    let q = query(transactionsRef, orderBy("timestamp", "desc"));
-
-    const constraints = [];
-    if (dateFrom) {
-        constraints.push(where("timestamp", ">=", Timestamp.fromDate(startOfDay(parseISO(dateFrom)))));
-    }
-    if (dateTo) {
-        constraints.push(where("timestamp", "<=", Timestamp.fromDate(endOfDay(parseISO(dateTo)))));
+    if (!dateFrom || !dateTo) {
+        throw new Error("Selecciona la fecha inicial y la fecha final.");
     }
 
-    if (constraints.length > 0) {
-        q = query(transactionsRef, ...constraints, orderBy("timestamp", "desc"));
+    const start = startOfDay(parseISO(dateFrom));
+    const end = endOfDay(parseISO(dateTo));
+    if (start > end) {
+        throw new Error("La fecha inicial no puede ser posterior a la final.");
     }
 
+    const q = query(
+        transactionsRef,
+        where("timestamp", ">=", Timestamp.fromDate(start)),
+        where("timestamp", "<=", Timestamp.fromDate(end)),
+        orderBy("timestamp", "desc"),
+        limit(REPORT_ROW_LIMIT + 1)
+    );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((snapshotDoc) => ({
-        id: snapshotDoc.id,
-        ...snapshotDoc.data()
-    }));
+
+    return {
+        transactions: snapshot.docs.slice(0, REPORT_ROW_LIMIT).map((snapshotDoc) => ({
+            id: snapshotDoc.id,
+            ...snapshotDoc.data()
+        })),
+        truncated: snapshot.size > REPORT_ROW_LIMIT,
+        limit: REPORT_ROW_LIMIT
+    };
 };

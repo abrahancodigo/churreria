@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
     ArrowDownLeft,
@@ -18,8 +18,6 @@ import {
     Printer,
     FileDown,
 } from "lucide-react";
-import { db } from "../firebase.config";
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
@@ -28,70 +26,47 @@ import { buildReceiptHtml, printHtmlDocument, openHtmlDocument } from "../lib/re
 import { useToast } from "../hooks/useToast";
 import { useCompany } from "../hooks/useCompany";
 import { PageHeader, EmptyState, ListSkeleton, StatCard } from "../components/ui";
+import { getTransactionsByTypeAndRange } from "../services/dashboardService";
 
 const money = (value) =>
     "$" + Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function useUsersMap() {
-    const [users, setUsers] = useState({});
-    useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"));
-                const snapshot = await getDocs(q);
-                const ids = new Set();
-                snapshot.docs.forEach((d) => {
-                    if (d.data().userId) ids.add(d.data().userId);
-                });
-                const map = {};
-                for (const id of ids) {
-                    try {
-                        const snap = await getDoc(doc(db, "users", id));
-                        map[id] = snap.exists()
-                            ? { email: snap.data().email || id, name: snap.data().name || snap.data().email || id }
-                            : { email: id, name: id };
-                    } catch {
-                        map[id] = { email: id, name: id };
-                    }
-                }
-                setUsers(map);
-            } catch (e) {
-                console.error("Error fetching users:", e);
-            }
-        };
-        fetchUsers();
-    }, []);
-    return users;
-}
-
 function useMovements(type, start, end) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const requestId = useRef(0);
+
     useEffect(() => {
+        const currentRequest = ++requestId.current;
+        let active = true;
+
         const fetchData = async () => {
             setLoading(true);
             try {
-                const q = query(collection(db, "transactions"), where("type", "==", type), orderBy("timestamp", "desc"));
-                const snap = await getDocs(q);
-                const s = startOfDay(start);
-                const e = endOfDay(end);
-                setData(
-                    snap.docs
-                        .map((d) => ({ id: d.id, ...d.data() }))
-                        .filter((tx) => {
-                            const t = tx.timestamp?.toDate ? tx.timestamp.toDate() : null;
-                            return t && t >= s && t <= e;
-                        })
+                const data = await getTransactionsByTypeAndRange(
+                    type,
+                    startOfDay(start),
+                    endOfDay(end)
                 );
+                if (!active || currentRequest !== requestId.current) return;
+                setData(data);
             } catch (err) {
+                if (!active || currentRequest !== requestId.current) return;
                 console.error(`Error fetching ${type}:`, err);
                 setData([]);
             } finally {
-                setLoading(false);
+                if (active && currentRequest === requestId.current) {
+                    setLoading(false);
+                }
             }
         };
+
         fetchData();
+        return () => {
+            active = false;
+        };
     }, [type, start, end]);
+
     return { data, loading };
 }
 
@@ -113,7 +88,6 @@ export default function Dashboard() {
     const [rangeStart, setRangeStart] = useState(() => startOfMonth(new Date()));
     const [rangeEnd, setRangeEnd] = useState(() => endOfMonth(new Date()));
 
-    const users = useUsersMap();
     const { data: entries, loading: loadingEntries } = useMovements("entry", rangeStart, rangeEnd);
     const { data: exits, loading: loadingExits } = useMovements("exit", rangeStart, rangeEnd);
 
@@ -239,7 +213,7 @@ export default function Dashboard() {
 
             {/* Detalle del movimiento */}
             {viewingTx && (
-                <TxDetailModal tx={viewingTx} products={products} users={users} onClose={() => setViewingTx(null)} />
+                <TxDetailModal tx={viewingTx} products={products} onClose={() => setViewingTx(null)} />
             )}
         </div>
     );
@@ -303,7 +277,7 @@ function MovementCard({ title, kind, data, total, products, onView }) {
     );
 }
 
-function TxDetailModal({ tx, products, users, onClose }) {
+function TxDetailModal({ tx, products, onClose }) {
     const isEntry = tx.type === "entry";
     const { addToast } = useToast();
     const company = useCompany();
@@ -368,7 +342,9 @@ function TxDetailModal({ tx, products, users, onClose }) {
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-xl bg-paper border border-line p-3">
                             <p className="eyebrow flex items-center gap-1"><User className="h-3.5 w-3.5" /> Usuario</p>
-                            <p className="text-sm font-bold text-ink truncate mt-1">{users[tx.userId]?.name || "—"}</p>
+                            <p className="text-sm font-bold text-ink truncate mt-1">
+                                {tx.createdBy || tx.userId || "—"}
+                            </p>
                         </div>
                         <div className="rounded-xl bg-paper border border-line p-3">
                             <p className="eyebrow flex items-center gap-1"><Store className="h-3.5 w-3.5" /> Sucursal</p>

@@ -1,46 +1,53 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase.config';
+import { useEffect, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase.config";
+import { useAuth } from "../hooks/useAuth";
+import { CompanyContext } from "./company-context";
 
-/**
- * Single source of truth for the `settings/company` document.
- *
- * Previously Layout, Sidebar, ReceiptPrinter and Transactions each opened
- * their own read of this document, which meant 4 reads on every app start and
- * the risk of components rendering stale company data. One shared listener
- * fixes both.
- *
- * The exported context object is required for the provider and hook, so this
- * file intentionally mixes exports (same pattern as AuthContext/ToastContext).
- */
-// El contexto se exporta junto al provider a propósito (ver AuthContext).
-// eslint-disable-next-line react-refresh/only-export-components
-export const CompanyContext = createContext({ companyInfo: {}, loading: true });
+const FALLBACK_COMPANY = Object.freeze({
+    name: "Churrería POS",
+    address: "",
+    logoUrl: ""
+});
 
-// Provider + hook en el mismo archivo: patrón intencional (ver AuthContext).
-// eslint-disable-next-line react-refresh/only-export-components
-export const useCompany = () => useContext(CompanyContext);
+const INITIAL_STATE = {
+    uid: null,
+    info: FALLBACK_COMPANY,
+    loading: false
+};
 
-/** Shared listener over `settings/company`. */
-
+/** Una sola escucha de la empresa, compartida por toda la aplicación. */
 export const CompanyProvider = ({ children }) => {
-    const [companyInfo, setCompanyInfo] = useState({});
-    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const userId = user?.uid;
+    const [state, setState] = useState(INITIAL_STATE);
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(
-            doc(db, 'settings', 'company'),
+        if (!userId) return undefined;
+
+        let active = true;
+        return onSnapshot(
+            doc(db, "settings", "company"),
             (snap) => {
-                setCompanyInfo(snap.exists() ? snap.data() : {});
-                setLoading(false);
+                if (!active) return;
+                setState({
+                    uid: userId,
+                    info: snap.exists()
+                        ? { ...FALLBACK_COMPANY, ...snap.data() }
+                        : FALLBACK_COMPANY,
+                    loading: false
+                });
             },
             (error) => {
-                console.error('Error loading company settings:', error);
-                setLoading(false);
+                if (!active) return;
+                console.error("Error loading company settings:", error);
+                setState({ uid: userId, info: FALLBACK_COMPANY, loading: false });
             }
         );
-        return () => unsubscribe();
-    }, []);
+    }, [userId]);
+
+    const companyInfo = state.uid === userId ? state.info : FALLBACK_COMPANY;
+    const loading = Boolean(userId) && (state.uid !== userId || state.loading);
 
     return (
         <CompanyContext.Provider value={{ companyInfo, loading }}>

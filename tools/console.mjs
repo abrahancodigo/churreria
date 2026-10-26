@@ -5,7 +5,9 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 const CHROME = ["C:/Program Files/Google/Chrome/Application/chrome.exe"].find((p) => fs.existsSync(p));
-const route = process.argv[2] || "/";
+const args = process.argv.slice(2);
+const route = args.find((arg) => !arg.startsWith("--")) || "/";
+const role = args.find((arg) => arg.startsWith("--role="))?.split("=")[1] || "admin";
 const port = 9700 + Math.floor(Math.random() * 200);
 const profile = path.resolve(".tmp/chrome-console-" + process.pid);
 fs.mkdirSync(profile, { recursive: true });
@@ -68,12 +70,9 @@ try {
             console.log(`[log.${m.params.entry.level}]`, String(m.params.entry.text).slice(0, 400));
         }
     });
-    await cdp.send("Page.navigate", { url: "http://127.0.0.1:5199/tools/harness/index.html?role=admin" });
+    const url = `http://127.0.0.1:5199/tools/harness/index.html?role=${encodeURIComponent(role)}&p=${encodeURIComponent(route)}`;
+    await cdp.send("Page.navigate", { url });
     await sleep(2500);
-    if (route !== "/") {
-        await cdp.send("Runtime.evaluate", { expression: `window.history.pushState({}, '', ${JSON.stringify(route)}); window.dispatchEvent(new PopStateEvent('popstate'));` });
-        await sleep(1500);
-    }
     const info = await cdp.send("Runtime.evaluate", {
         expression: "JSON.stringify({ url: location.href, root: !!document.getElementById('root'), html: (document.getElementById('root')||{}).innerHTML?.slice(0,200), body: document.body.innerText.slice(0,200) })",
         returnByValue: true,

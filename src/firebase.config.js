@@ -1,7 +1,12 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,5 +22,20 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Reutiliza lecturas entre recargas y pestañas. Si el navegador no ofrece
+// IndexedDB, se conserva el comportamiento normal en memoria.
+let firestore;
+try {
+  firestore = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} catch (error) {
+  console.warn("No se pudo activar la cache persistente de Firestore:", error);
+  firestore = getFirestore(app);
+}
+
+export const db = firestore;
 export default app;

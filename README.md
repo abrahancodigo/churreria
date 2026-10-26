@@ -54,11 +54,12 @@ Roles: `admin` y `cajero`. La gestión de movimientos y ajustes es solo de admin
 src/
   components/   AppNav, Layout, ui.jsx (PageHeader, StatCard, Sheet, ...),
                 accents.js (paleta por sección), BrandPanel, TypeBadge
-  context/      AuthContext, ToastContext (+ sus contextos en auth-context.js,
-                toast-context.js para respetar Fast Refresh)
+  context/      AuthContext, CompanyContext y ToastContext (+ sus contextos en
+                archivos separados para respetar Fast Refresh)
   hooks/        useAuth, useToast, useRole, useCompany
-  lib/          db.js (altas/bajas y ajuste de stock), movements.js (motivos),
+  lib/          db.js (catálogo, movimientos y stock), movements.js (motivos),
                 receipt.js (comprobante e impresión)
+  services/     dashboardService y reportService (consultas acotadas)
   pages/        una pantalla por ruta
 ```
 
