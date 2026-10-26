@@ -71,8 +71,8 @@ export default function Register() {
                         Todo lo importante, más ordenado.
                     </h1>
                     <p className="mt-5 text-ink-600 leading-relaxed">
-                        Crea tu cuenta y accede al inventario, los movimientos de almacén
-                        y el punto de venta desde el navegador.
+                        Crea tu cuenta y accede al inventario y los movimientos de almacén
+                        desde el navegador.
                     </p>
                     <ul className="mt-10 space-y-3 border-t border-primary-200 pt-6">
                         {[

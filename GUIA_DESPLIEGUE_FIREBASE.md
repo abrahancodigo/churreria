@@ -1,6 +1,6 @@
 # Guía de Despliegue a Firebase Hosting
 
-Sigue estos pasos para publicar tu Sistema de Inventario y POS en internet.
+Sigue estos pasos para publicar tu Sistema de Inventario en internet.
 
 ## 1. Prerrequisitos
 Asegúrate de estar en la carpeta del proyecto:
@@ -43,7 +43,7 @@ npx firebase deploy
 Si ves errores de permisos, asegúrate de que las reglas en `firestore.rules` se hayan subido. El comando `deploy` debería hacerlo automáticamente.
 
 ### Índices Faltantes
-Si al buscar en el POS o Reportes ves un error en la consola del navegador sobre un índice faltante, haz clic en el enlace que aparece en la consola. Firebase creará el índice por ti automáticamente.
+Si al buscar en Reportes ves un error en la consola del navegador sobre un índice faltante, haz clic en el enlace que aparece en la consola. Firebase creará el índice por ti automáticamente.
 
 ### Página en Blanco
 Si al abrir la URL ves una página en blanco, verifica que:

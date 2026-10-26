@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import { Save, Building, Users, Trash, Shield, RefreshCw, AlertTriangle } from "lucide-react";
-import { db } from "../firebase.config";
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
-import { reindexTransactions } from "../lib/db";
+import { reindexTransactions } from "../services/movementService";
+import {
+    deleteUser,
+    getCompanySettings,
+    listUsers,
+    saveCompanySettings,
+    updateUserRole
+} from "../services/settingsService";
 import { useToast } from "../context/ToastContext";
 import { useRole } from "../hooks/useRole";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -26,10 +31,9 @@ export default function Settings() {
 
     const fetchSettings = async () => {
         try {
-            const docRef = doc(db, "settings", "company");
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                setCompanyInfo(docSnap.data());
+            const company = await getCompanySettings();
+            if (company) {
+                setCompanyInfo(company);
             }
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -38,8 +42,7 @@ export default function Settings() {
 
     const fetchUsers = async () => {
         try {
-            const querySnapshot = await getDocs(collection(db, "users"));
-            const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const users = await listUsers();
             setUsersList(users);
         } catch (error) {
             console.error("Error fetching users:", error);
@@ -49,7 +52,7 @@ export default function Settings() {
     const handleSaveCompany = async (e) => {
         e.preventDefault();
         try {
-            await setDoc(doc(db, "settings", "company"), companyInfo);
+            await saveCompanySettings(companyInfo);
             addToast("Información de la empresa guardada");
         } catch (error) {
             addToast("Error al guardar: " + error.message, "error");
@@ -59,7 +62,7 @@ export default function Settings() {
     const toggleRole = async (targetUser) => {
         const newRole = targetUser.role === 'admin' ? 'cashier' : 'admin';
         try {
-            await updateDoc(doc(db, "users", targetUser.id), { role: newRole });
+            await updateUserRole(targetUser.id, newRole);
             setUsersList(prev => prev.map(u => u.id === targetUser.id ? { ...u, role: newRole } : u));
             addToast(`Rol de ${targetUser.name} actualizado a ${newRole === 'admin' ? 'Administrador' : 'Cajero'}`);
         } catch (error) {
@@ -75,7 +78,7 @@ export default function Settings() {
         if (!userToDelete) return;
         setDeletingUser(true);
         try {
-            await deleteDoc(doc(db, "users", userToDelete));
+            await deleteUser(userToDelete);
             setUsersList(prev => prev.filter(u => u.id !== userToDelete));
             addToast("Usuario eliminado del sistema.");
             setUserToDelete(null);

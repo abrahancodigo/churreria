@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { db } from "../firebase.config";
-import { collection, query, orderBy, getDocs, where, Timestamp } from "firebase/firestore";
-import { format, startOfDay, endOfDay, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { Search, FileDown, Filter, BarChart3, Package, Eye, X } from "lucide-react";
-import { getProducts } from "../lib/db";
+import { getProducts } from "../services/productService";
+import { getReportTransactions } from "../services/reportService";
 import { formatCurrency } from "../lib/formatters";
 import { useToast } from "../context/ToastContext";
 import * as XLSX from "xlsx";
@@ -40,22 +39,7 @@ export default function Reports() {
     const fetchTransactions = async () => {
         setLoading(true);
         try {
-            let q = query(collection(db, "transactions"), orderBy("timestamp", "desc"));
-
-            const constraints = [];
-            if (dateFrom) {
-                constraints.push(where("timestamp", ">=", Timestamp.fromDate(startOfDay(parseISO(dateFrom)))));
-            }
-            if (dateTo) {
-                constraints.push(where("timestamp", "<=", Timestamp.fromDate(endOfDay(parseISO(dateTo)))));
-            }
-
-            if (constraints.length > 0) {
-                q = query(collection(db, "transactions"), ...constraints, orderBy("timestamp", "desc"));
-            }
-
-            const snapshot = await getDocs(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const data = await getReportTransactions({ dateFrom, dateTo });
             setTransactions(data);
             addToast(`Se encontraron ${data.length} transacciones`);
         } catch (error) {

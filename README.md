@@ -5,7 +5,6 @@ está pensada para usarse desde computadora, tableta o teléfono.
 
 ## Qué incluye
 
-- Punto de venta con carrito, control de existencias e impresión de recibos.
 - Catálogo de productos con precio, costo, SKU, imágenes y stock.
 - Registro de entradas y salidas de almacén.
 - Historial de transacciones, reportes y exportación a Excel.

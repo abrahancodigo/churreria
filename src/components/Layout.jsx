@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { Menu, Moon, Sun, Flame } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { useCompany } from "../context/CompanyContext";
@@ -9,8 +9,6 @@ export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { companyInfo } = useCompany();
     const { theme, toggleTheme } = useTheme();
-    const location = useLocation();
-    const isPointOfSale = location.pathname === "/pos";
 
     useEffect(() => {
         document.body.style.overflow = isSidebarOpen ? "hidden" : "";
@@ -33,7 +31,7 @@ export default function Layout() {
     }, [isSidebarOpen]);
 
     return (
-        <div className="flex h-dvh overflow-hidden bg-ink-50">
+        <div className="app-shell flex min-h-dvh bg-ink-50 md:h-dvh md:overflow-hidden">
             <div className="relative z-30 hidden shrink-0 md:flex shadow-sidebar">
                 <Sidebar />
             </div>
@@ -53,8 +51,8 @@ export default function Layout() {
                 </div>
             )}
 
-            <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
-                <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-ink-200/70 bg-surface px-4 sm:px-6">
+            <div className="relative z-10 flex min-w-0 flex-1 flex-col md:overflow-hidden">
+                <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-ink-200/70 bg-surface/85 px-4 backdrop-blur-xl sm:px-6 md:relative md:bg-surface md:backdrop-blur-none">
                     <div className="flex min-w-0 items-center gap-3">
                         <button
                             type="button"
@@ -92,18 +90,12 @@ export default function Layout() {
                     </button>
                 </header>
 
-                <main className={`min-h-0 flex-1 ${isPointOfSale ? "overflow-hidden" : "overflow-y-auto custom-scrollbar"}`}>
-                    {isPointOfSale ? (
-                        <div className="h-full min-h-0">
+                <main className="relative custom-scrollbar min-h-0 flex-1 md:overflow-y-auto">
+                    <div className="pb-safe py-6 sm:py-8">
+                        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                             <Outlet />
                         </div>
-                    ) : (
-                        <div className="py-6 sm:py-8">
-                            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                                <Outlet />
-                            </div>
-                        </div>
-                    )}
+                    </div>
                 </main>
             </div>
         </div>

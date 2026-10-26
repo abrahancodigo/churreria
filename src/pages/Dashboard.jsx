@@ -12,13 +12,11 @@ import {
     Layers,
     Info,
     ArrowRightLeft,
-    ShoppingCart,
 } from "lucide-react";
-import { db } from "../firebase.config";
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { Link } from "react-router-dom";
-import { getProducts } from "../lib/db";
+import { getProducts } from "../services/productService";
+import { getDashboardUsers, getTransactionsByTypeAndRange } from "../services/dashboardService";
 import { formatCurrency } from "../lib/formatters";
 import MovementPanel from "../components/MovementPanel";
 
@@ -76,22 +74,11 @@ export default function Dashboard() {
 
         if (userIds.length === 0) return undefined;
 
-        let isCurrent = true;
-        Promise.all(userIds.map(async (userId) => {
-            try {
-                const userSnapshot = await getDoc(doc(db, "users", userId));
-                const userData = userSnapshot.exists() ? userSnapshot.data() : {};
-                const email = userData.email || userId;
-                return [userId, { email, name: userData.name || email }];
-            } catch (error) {
-                console.warn(`No se pudo cargar el usuario ${userId}:`, error);
-                return [userId, { email: userId, name: userId }];
-            }
-        })).then((userEntries) => {
-            if (isCurrent) setUsers((current) => ({ ...current, ...Object.fromEntries(userEntries) }));
+        getDashboardUsers(userIds).then((userData) => {
+            setUsers((current) => ({ ...current, ...userData }));
         });
 
-        return () => { isCurrent = false; };
+        return () => {};
     }, [entries, exits, users]);
 
     // Fetch entradas cuando cambian las fechas
@@ -101,18 +88,7 @@ export default function Dashboard() {
                 const start = startOfDay(entryStartDate);
                 const end = endOfDay(entryEndDate);
 
-                const entriesQuery = query(
-                    collection(db, "transactions"),
-                    where("type", "==", "entry"),
-                    where("timestamp", ">=", start),
-                    where("timestamp", "<=", end),
-                    orderBy("timestamp", "desc")
-                );
-                const entriesSnapshot = await getDocs(entriesQuery);
-
-                const entriesData = entriesSnapshot.docs
-                    .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }));
-
+                const entriesData = await getTransactionsByTypeAndRange("entry", start, end);
                 setEntries(entriesData);
             } catch (error) {
                 console.error("Error fetching entries:", error);
@@ -132,18 +108,7 @@ export default function Dashboard() {
                 const start = startOfDay(exitStartDate);
                 const end = endOfDay(exitEndDate);
 
-                const exitsQuery = query(
-                    collection(db, "transactions"),
-                    where("type", "==", "exit"),
-                    where("timestamp", ">=", start),
-                    where("timestamp", "<=", end),
-                    orderBy("timestamp", "desc")
-                );
-                const exitsSnapshot = await getDocs(exitsQuery);
-
-                const exitsData = exitsSnapshot.docs
-                    .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }));
-
+                const exitsData = await getTransactionsByTypeAndRange("exit", start, end);
                 setExits(exitsData);
             } catch (error) {
                 console.error("Error fetching exits:", error);
@@ -268,10 +233,6 @@ export default function Dashboard() {
                     <p className="page-subtitle">Existencias y movimientos de almacén en un solo lugar.</p>
                 </div>
                 <div className="flex flex-wrap gap-2.5">
-                    <Link to="/pos" className="btn-primary self-start sm:self-auto">
-                        <ShoppingCart className="h-4 w-4" />
-                        Nueva venta
-                    </Link>
                     <Link to="/stock-adjustments" className="btn-secondary self-start sm:self-auto">
                         <Edit className="h-4 w-4" />
                         Registrar movimiento

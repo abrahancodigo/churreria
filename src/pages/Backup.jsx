@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Download, Shield, Database, CheckCircle, AlertCircle } from "lucide-react";
-import { db } from "../firebase.config";
-import { collection, getDocs } from "firebase/firestore";
+import { getBackupCollection, getBackupProjectId } from "../services/backupService";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useRole } from "../hooks/useRole";
@@ -39,13 +38,7 @@ export default function Backup() {
     const backupCollection = async (collectionName) => {
         try {
             setCurrentCollection(collectionName);
-            const colRef = collection(db, collectionName);
-            const snapshot = await getDocs(colRef);
-
-            const docs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            const docs = await getBackupCollection(collectionName);
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             downloadJSON(docs, `${collectionName}_backup_${timestamp}.json`);
@@ -78,7 +71,7 @@ export default function Backup() {
             // Download summary
             const summaryData = {
                 timestamp: new Date().toISOString(),
-                projectId: db.app.options.projectId,
+                projectId: getBackupProjectId(),
                 backupBy: user?.email,
                 collections: summary,
                 totalDocuments: Object.values(summary).reduce((a, b) => a + b, 0)

@@ -10,7 +10,6 @@ import {
     Package,
     Receipt,
     Settings as SettingsIcon,
-    ShoppingCart,
     X,
 } from "lucide-react";
 import clsx from "clsx";
@@ -22,7 +21,6 @@ const OPERATIONS = [
     { name: "Resumen", path: "/", icon: LayoutDashboard },
     { name: "Inventario", path: "/inventory", icon: Package },
     { name: "Movimientos", path: "/stock-adjustments", icon: ArrowRightLeft },
-    { name: "Punto de venta", path: "/pos", icon: ShoppingCart },
     { name: "Ventas e historial", path: "/transactions", icon: Receipt },
     { name: "Reportes", path: "/reports", icon: FileBarChart2 },
 ];

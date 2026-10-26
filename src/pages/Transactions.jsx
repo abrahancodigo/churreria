@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
-import { db } from "../firebase.config";
-import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { format } from "date-fns";
 import { Search, Trash2, Eye, X, Printer, RefreshCw, FileDown, Edit2 } from "lucide-react";
-import { deleteTransaction, editTransaction, getProducts } from "../lib/db";
+import { getProducts } from "../services/productService";
+import { deleteTransaction, editTransaction, subscribeRecentTransactions } from "../services/transactionService";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useCompany } from "../context/CompanyContext";
 import { useRole } from "../hooks/useRole";
 import { formatCurrency } from "../lib/formatters";
+import { printDocument } from "../lib/documentPrinter";
 import ConfirmDialog from "../components/ConfirmDialog";
 import * as XLSX from "xlsx";
 
@@ -35,14 +35,7 @@ export default function Transactions() {
     }, []);
 
     useEffect(() => {
-        const q = query(
-            collection(db, "transactions"),
-            orderBy("timestamp", "desc"),
-            limit(50)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const unsubscribe = subscribeRecentTransactions((data) => {
             setTransactions(data);
         });
         return () => unsubscribe();
@@ -243,7 +236,16 @@ export default function Transactions() {
     };
 
     const handlePrint = () => {
-        window.print();
+        printDocument({
+            id: viewingTransaction.reference || viewingTransaction.id,
+            type: viewingTransaction.type.toUpperCase(),
+            date: viewingTransaction.timestamp,
+            items: viewingTransaction.items,
+            total: viewingTransaction.total,
+            notes: viewingTransaction.notes,
+            sucursal: getSucursal(viewingTransaction),
+            user: viewingTransaction.userId
+        }, companyInfo);
     };
 
     const getTypeLabel = (type) => {

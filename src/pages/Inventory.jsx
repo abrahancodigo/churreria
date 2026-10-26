@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash, X, ImageIcon, Search, Package, PackageX } from "lucide-react";
-import { getProducts, addProduct, updateProduct, deleteProduct, friendlyDbError } from "../lib/db";
+import { getProducts, addProduct, updateProduct, deleteProduct, friendlyDbError } from "../services/productService";
 import { processImageFile } from "../lib/image";
 import { formatCurrency } from "../lib/formatters";
 import { useToast } from "../context/ToastContext";

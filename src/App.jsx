@@ -8,8 +8,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 
-// Route-level code splitting: the POS, Reports (xlsx ~450KB) and Backup
-// chunks are only downloaded when the user actually navigates there.
+// Route-level code splitting: Reports (xlsx ~450KB) and Backup chunks are
+// only downloaded when the user actually navigates there.
 const Register = lazy(() => import("./pages/Register"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Inventory = lazy(() => import("./pages/Inventory"));
@@ -17,7 +17,6 @@ const Transactions = lazy(() => import("./pages/Transactions"));
 const StockAdjustment = lazy(() => import("./pages/StockAdjustment"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Reports = lazy(() => import("./pages/Reports"));
-const POS = lazy(() => import("./pages/POS"));
 const Backup = lazy(() => import("./pages/Backup"));
 
 function PageLoader() {
@@ -51,7 +50,6 @@ function App() {
                                         <Route path="/stock-adjustments" element={<StockAdjustment />} />
                                         <Route path="/reports" element={<Reports />} />
                                         <Route path="/settings" element={<Settings />} />
-                                        <Route path="/pos" element={<POS />} />
                                         <Route path="/backup" element={<Backup />} />
                                     </Route>
                                 </Routes>
