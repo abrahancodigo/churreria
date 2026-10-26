@@ -7,14 +7,37 @@
     <meta name="theme-color" content="#16100b" />
     <meta name="description" content="Control de inventario y movimientos de almacén: entradas, salidas, folios consecutivos y reportes." />
     <title>Churrería — Almacén e Inventario</title>
-    
-    <!-- Google Fonts: Plus Jakarta Sans -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Plus Jakarta Sans es self-hosted ( bundles en assets/, ver src/main.jsx ):
+         elimina dos origenes externos y el CSS render-blocking de Google Fonts. -->
+    <!-- Splash de marca: CSS inline para pintarse antes que cualquier JS.
+         Cuando React monta, reemplaza el contenido de #root y el splash
+         cede el paso a la app (ver src/components/Splash.jsx, misma estetica). -->
+    <style>
+      .sp-screen{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;background:radial-gradient(1100px 560px at 8% -12%,#d9e6ff 0%,transparent 55%),radial-gradient(900px 480px at 100% 0%,#e4e6ff 0%,transparent 52%),radial-gradient(850px 620px at 50% 115%,#d9e6ff 0%,transparent 55%),#f6f8fc;font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif}
+      .sp-card{display:flex;align-items:center;justify-content:center;width:96px;height:96px;border-radius:24px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.05),0 12px 28px -8px rgba(15,23,42,.16),0 1px 0 rgba(255,255,255,.6) inset;animation:sp-breathe 1.8s ease-in-out infinite}
+      .sp-logo{width:52px;height:52px;display:block}
+      .sp-track{width:176px;height:6px;border-radius:999px;background:#e9eef7;overflow:hidden;position:relative}
+      .sp-fill{position:absolute;top:0;bottom:0;left:0;width:40%;border-radius:999px;background:linear-gradient(90deg,#8bb8ff,#2065ff);transform:translateX(-110%);animation:sp-slide 1.15s ease-in-out infinite}
+      .sp-text{margin:-6px 0 0;font-size:13.5px;font-weight:700;color:#475569;letter-spacing:.01em}
+      @keyframes sp-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+      @keyframes sp-slide{to{transform:translateX(300%)}}
+      @media (prefers-reduced-motion:reduce){.sp-card,.sp-fill{animation:none}.sp-fill{transform:none;left:30%}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="sp-screen" role="status" aria-live="polite" aria-label="Cargando la aplicación">
+        <div class="sp-card">
+          <svg class="sp-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <rect width="64" height="64" rx="18" fill="#BE4F2B"/>
+            <path d="M33.2 10.5c1.1 9.1-4.4 11.8-7.5 17.2-2.3 4-2.2 8.8.2 12.4 1-4 4.1-6.1 6.7-8.7.3 5.4 5.8 7.1 5.8 13.2 0 4.4-3 7.8-7.7 7.8-7.3 0-12.2-5.1-12.2-12.4 0-11.4 11.8-16 14.7-29.5Z" fill="#FFF8F0"/>
+            <path d="M42.5 25.4c.2 4.2-2.1 6.4-3.8 9.1 4 2.5 6.4 5.7 6.4 10.3 0 5.6-4.6 9.8-10.6 10.7 7.4-3.7 7.1-9.4 4.6-12.8-1.8-2.5-4.3-3.5-4.5-7.2 3-2.5 6.8-4.7 7.9-10.1Z" fill="#F2B078"/>
+          </svg>
+        </div>
+        <div class="sp-track"><div class="sp-fill"></div></div>
+        <p class="sp-text">Preparando tu almacén…</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
