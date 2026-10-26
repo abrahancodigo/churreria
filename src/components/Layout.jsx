@@ -21,7 +21,7 @@ export default function Layout() {
             {/* Cabecera movil con la misma identidad que el sidebar + hamburguesa.
                 Altura y sangria alineadas con el contenido (px-4) para que la
                 marca, el titulo y las tarjetas compartan el mismo eje. */}
-            <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-line shadow-card">
+            <header className="md:hidden sticky top-0 z-30 bg-white border-b border-line shadow-card [transform:translateZ(0)]">
                 <div className="flex items-center gap-2.5 pl-4 pr-2 h-14">
                     <CompanyMark company={company} />
                     <p className="font-extrabold text-ink truncate flex-1">{company.name}</p>

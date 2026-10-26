@@ -102,7 +102,7 @@ export function SidebarNav({ onNavigate }) {
 export function BottomNav() {
     const location = useLocation();
     return (
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-line px-2 pt-1.5 shadow-[0_-6px_20px_-12px_rgba(15,23,42,0.35)]"
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-line px-2 pt-1.5 shadow-[0_-6px_20px_-12px_rgba(15,23,42,0.35)] [transform:translateZ(0)]"
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
             <div className="grid grid-cols-3 items-end gap-1">
                 {BOTTOM_TABS.map((tab) => {
