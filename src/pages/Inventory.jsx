@@ -201,8 +201,8 @@ export default function Inventory() {
                                                 <td className="!text-right font-extrabold !text-ink tnum">{money(p.price)}</td>
                                                 <td className="!text-right text-ink-3 tnum hidden lg:table-cell">{money(p.cost)}</td>
                                                 <td className="!text-center">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-extrabold text-xs tnum ${st.cls}`}>
-                                                        <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-extrabold text-base tnum ${st.cls}`}>
+                                                        <span className={`h-2 w-2 rounded-full ${st.dot}`} />
                                                         {p.stock}
                                                     </span>
                                                 </td>
@@ -233,8 +233,8 @@ export default function Inventory() {
                                                 <h3 className="font-bold text-ink truncate">{p.name}</h3>
                                                 {p.sku && <p className="text-xs font-mono text-ink-3">{p.sku}</p>}
                                             </div>
-                                            <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-extrabold text-sm tnum ${st.cls}`}>
-                                                <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
+                                            <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-extrabold text-base tnum ${st.cls}`}>
+                                                <span className={`h-2 w-2 rounded-full ${st.dot}`} />
                                                 {p.stock}
                                             </span>
                                         </div>
