@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useRole } from "../hooks/useRole";
 import { useCompany } from "../hooks/useCompany";
-import { LogOut, ChevronRight } from "lucide-react";
+import { LogOut, ChevronRight, X } from "lucide-react";
 import { NAV_GROUPS, BOTTOM_TABS } from "./nav";
 
 /** Logo o inicial de la empresa, en una capsula de marca. */
@@ -136,5 +137,39 @@ export function BottomNav() {
                 })}
             </div>
         </nav>
+    );
+}
+
+/**
+ * Cajon hamburguesa para movil: reproduce la sidebar completa (logo, rol,
+ * grupos con links de admin y logout) en un panel que entra desde la derecha.
+ * Convive con BottomNav a proposito: la barra inferior cubre el acceso rapido
+ * y el cajon expone el arbol completo (incluidos los links de admin).
+ */
+export function MobileMenuDrawer({ open, onClose }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === "Escape") onClose(); };
+        document.addEventListener("keydown", onKey);
+        const { body } = document;
+        const prevOverflow = body.style.overflow;
+        body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            body.style.overflow = prevOverflow;
+        };
+    }, [open, onClose]);
+    if (!open) return null;
+    return (
+        <div className="md:hidden fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Menú de navegación">
+            <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm animate-fade-in" onClick={onClose} aria-hidden="true" />
+            <div className="absolute inset-y-0 right-0 w-[86%] max-w-[19rem] bg-ink-fade shadow-pop border-l border-black/30 overflow-y-auto animate-slide-in-right">
+                <button type="button" onClick={onClose} aria-label="Cerrar menú"
+                    className="absolute top-3 right-3 z-10 h-11 w-11 rounded-xl text-white/85 hover:bg-white/10 hover:text-white inline-flex items-center justify-center transition-colors touch-manipulation">
+                    <X className="h-6 w-6" strokeWidth={2.4} />
+                </button>
+                <SidebarNav onNavigate={onClose} />
+            </div>
+        </div>
     );
 }
