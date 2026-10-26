@@ -1,738 +1,295 @@
-/* =========================================================================
-   Churrería POS — Sistema de diseño "Azul Tinta"
-   -------------------------------------------------------------------------
-   1. Variables de tema (:root = claro, :root.dark = oscuro)
-   2. Base (tipografía, scrollbars, foco, accesibilidad)
-   3. Componentes (superficies, botones, campos, tablas, estados)
-   4. Utilidades
-
-   Las escalas de color se declaran en RGB sin alfa para poder combinarlas
-   con el modificador /opacidad de Tailwind (<alpha-value>).
-   ========================================================================= */
-
-/*
- * La fuente Plus Jakarta Sans se carga desde index.html con `media="print"
- * onload="this.media='all'"`, es decir, de forma NO bloqueante: la app pinta
- * al instante con la tipografía del sistema y luego hace el swap. Si el local
- * se queda sin internet, la app sigue siendo usable con la fuente de sistema.
- * Por eso aquí NO debe existir un @import a Google Fonts (sería render-blocking).
- */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Recompilación forzada tras el cambio de tokens (ver tailwind.config.js). */
 
-/* =========================================================================
-   1. VARIABLES DE TEMA
-   ========================================================================= */
+/* ---------------------------------------------------------------------------
+   CAPA BASE
+   Tipografia con mejor legibilidad (tracking negativo solo en titulares) y
+   neutros frios. Cada par de color usado aqui esta verificado con
+   `node tools/contrast.mjs` contra WCAG AA.
+   --------------------------------------------------------------------------- */
 @layer base {
-    :root {
-        color-scheme: light;
+  /* Base tipografica ampliada: 17px en vez de 16px. Todos los tamanios
+     `text-*` de Tailwind son rem, asi que la jerarquia completa crece ~6%
+     de forma armonica (texto, espaciados y radios: todo escala junto). */
+  html {
+    font-size: 106.25%;
+    -webkit-text-size-adjust: 100%;
+  }
 
-        /* --- Semánticas (superficies) --- */
-        --surface: 255 255 255;      /* tarjetas, modales, tablas */
-        --elevated: 255 255 255;     /* campos dentro de tarjetas */
-        --rail: 252 253 255;         /* barra lateral */
-        --scrim: 15 23 42;           /* velo de modales */
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-tap-highlight-color: transparent;
+  }
 
-        /* --- Neutros fríos (pizarra) --- */
-        --ink-50: 248 250 252;
-        --ink-100: 241 245 249;
-        --ink-200: 226 232 240;
-        --ink-300: 203 213 225;
-        --ink-400: 148 163 184;
-        --ink-500: 100 116 139;
-        --ink-600: 71 85 105;
-        --ink-700: 51 65 85;
-        --ink-800: 30 41 59;
-        --ink-900: 15 23 42;
+  /* Foco visible y consistente: obligatorio para navegar con teclado. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-paper;
+  }
 
-        /* --- Azul tinta (acento de marca) --- */
-        --primary-50: 238 244 255;
-        --primary-100: 219 230 254;
-        --primary-200: 191 211 254;
-        --primary-300: 147 180 253;
-        --primary-400: 96 144 250;
-        --primary-500: 59 109 246;
-        --primary-600: 37 81 235;
-        --primary-700: 29 63 216;
-        --primary-800: 30 53 174;
-        --primary-900: 30 50 137;
+  ::selection {
+    @apply bg-blue-200 text-ink;
+  }
 
-        /* --- Estados --- */
-        --success-50: 236 253 245;
-        --success-100: 209 250 229;
-        --success-200: 167 243 208;
-        --success-300: 110 231 183;
-        --success-400: 52 211 153;
-        --success-500: 16 185 129;
-        --success-600: 5 150 105;
-        --success-700: 4 120 87;
-        --success-800: 6 95 70;
-        --success-900: 6 78 59;
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-line-strong rounded-full border-2 border-solid border-transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-3/50; }
 
-        --warning-50: 255 251 235;
-        --warning-100: 254 243 199;
-        --warning-200: 253 230 138;
-        --warning-300: 252 211 77;
-        --warning-400: 251 191 36;
-        --warning-500: 245 158 11;
-        --warning-600: 217 119 6;
-        --warning-700: 180 83 9;
-        --warning-800: 146 64 14;
-        --warning-900: 120 53 15;
+  /* Numeros alineados en columnas de dinero: evita el "baile" al actualizar. */
+  .tnum { font-variant-numeric: tabular-nums; }
 
-        --danger-50: 255 241 242;
-        --danger-100: 255 228 230;
-        --danger-200: 254 205 211;
-        --danger-300: 253 164 175;
-        --danger-400: 251 113 133;
-        --danger-500: 244 63 94;
-        --danger-600: 225 29 72;
-        --danger-700: 190 18 60;
-        --danger-800: 159 18 57;
-        --danger-900: 136 19 55;
-
-        /* --- Sombras (capas suaves con tinte frío) --- */
-        --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-        --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 3px 9px -2px rgb(15 23 42 / 0.06);
-        --shadow-card-lg: 0 5px 14px -5px rgb(15 23 42 / 0.08), 0 18px 34px -18px rgb(15 23 42 / 0.14);
-        --shadow-panel: 0 12px 28px -12px rgb(15 23 42 / 0.14), 0 36px 70px -30px rgb(15 23 42 / 0.20);
-        --shadow-sidebar: 1px 0 0 rgb(15 23 42 / 0.06);
-        --shadow-focus: 0 0 0 3px rgb(37 81 235 / 0.18);
-        --shadow-glow: 0 8px 24px -12px rgb(37 81 235 / 0.35);
-
-        /* --- Marcas de botón sólido (siempre con texto blanco) --- */
-        --brand-btn: 37 81 235;
-        --brand-btn-hover: 29 63 216;
-        --danger-btn: 225 29 72;
-        --danger-btn-hover: 190 18 60;
-        --field-shadow: inset 0 1px 2px 0 rgb(15 23 42 / 0.04);
-        --hairline: rgb(255 255 255 / 0.7);
-    }
-
-    :root.dark {
-        color-scheme: dark;
-
-        --surface: 26 31 41;
-        --elevated: 19 23 31;
-        --rail: 22 27 36;
-        --scrim: 0 0 0;
-
-        --ink-50: 13 17 23;
-        --ink-100: 26 31 41;
-        --ink-200: 39 46 59;
-        --ink-300: 56 65 82;
-        --ink-400: 108 120 140;
-        --ink-500: 148 163 184;
-        --ink-600: 184 196 212;
-        --ink-700: 212 221 232;
-        --ink-800: 234 240 247;
-        --ink-900: 248 250 252;
-
-        --primary-50: 20 30 58;
-        --primary-100: 26 41 84;
-        --primary-200: 34 56 120;
-        --primary-300: 45 78 170;
-        --primary-400: 96 144 250;
-        --primary-500: 122 162 252;
-        --primary-600: 147 180 253;
-        --primary-700: 191 211 254;
-        --primary-800: 219 230 254;
-        --primary-900: 238 244 255;
-
-        --success-50: 12 35 28;
-        --success-100: 16 48 38;
-        --success-200: 22 66 52;
-        --success-300: 40 110 85;
-        --success-400: 52 211 153;
-        --success-500: 74 222 168;
-        --success-600: 110 231 183;
-        --success-700: 167 243 208;
-        --success-800: 209 250 229;
-        --success-900: 236 253 245;
-
-        --warning-50: 40 30 12;
-        --warning-100: 56 42 14;
-        --warning-200: 82 60 16;
-        --warning-300: 140 100 20;
-        --warning-400: 251 191 36;
-        --warning-500: 252 211 77;
-        --warning-600: 253 230 138;
-        --warning-700: 254 243 199;
-        --warning-800: 255 251 235;
-        --warning-900: 255 253 245;
-
-        --danger-50: 40 14 20;
-        --danger-100: 56 18 26;
-        --danger-200: 82 24 36;
-        --danger-300: 150 40 60;
-        --danger-400: 251 113 133;
-        --danger-500: 253 164 175;
-        --danger-600: 254 205 211;
-        --danger-700: 255 228 230;
-        --danger-800: 255 241 242;
-        --danger-900: 255 248 249;
-
-        --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-        --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 2px 6px -1px rgb(0 0 0 / 0.35);
-        --shadow-card-lg: 0 6px 14px -6px rgb(0 0 0 / 0.55), 0 22px 44px -20px rgb(0 0 0 / 0.7);
-        --shadow-panel: 0 10px 22px -10px rgb(0 0 0 / 0.65), 0 40px 80px -32px rgb(0 0 0 / 0.8);
-        --shadow-sidebar: 1px 0 0 rgb(255 255 255 / 0.05);
-        --shadow-focus: 0 0 0 3px rgb(122 162 252 / 0.30);
-        --shadow-glow: 0 8px 24px -12px rgb(122 162 252 / 0.40);
-
-        --brand-btn: 37 81 235;
-        --brand-btn-hover: 29 63 216;
-        --danger-btn: 225 29 72;
-        --danger-btn-hover: 244 63 94;
-        --field-shadow: inset 0 1px 2px 0 rgb(0 0 0 / 0.35);
-        --hairline: rgb(255 255 255 / 0.06);
-    }
-
-    /* =======================================================================
-       2. BASE
-       ======================================================================= */
-    html {
-        -webkit-tap-highlight-color: transparent;
-    }
-
-    body {
-        @apply bg-ink-50 text-ink-900 font-sans antialiased;
-        font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-        overflow-x: hidden;
-        text-rendering: optimizeLegibility;
-        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-        transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    h1, h2, h3, h4 {
-        @apply tracking-tight;
-        text-wrap: balance;
-    }
-
-    /*
-     * iOS Safari auto-zooms the viewport when a form control is focused and its
-     * computed font-size is below 16px. Forcing 16px on touch devices prevents
-     * the layout from jumping while typing (critical for the POS flow).
-     */
-    @media screen and (max-width: 767px) {
-        input:not([type='checkbox']):not([type='radio']),
-        select,
-        textarea {
-            font-size: 1rem !important;
-        }
-    }
-
-    /* Respect the OS "reduce motion" preference. */
-    @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-        }
-    }
-
-    ::selection {
-        background: rgb(var(--primary-500) / 0.28);
-        color: rgb(var(--ink-900));
-    }
-
-    /* Scrollbars discretos y temáticos */
-    ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-    }
-
-    ::-webkit-scrollbar-track {
-        @apply bg-transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: rgb(var(--ink-300));
-        border-radius: 999px;
-        border: 3px solid transparent;
-        background-clip: content-box;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgb(var(--ink-400));
-        background-clip: content-box;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-track {
-        @apply bg-transparent;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgb(var(--ink-300));
-        border-radius: 999px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgb(var(--ink-400));
-    }
-
-    /* Anillo de foco consistente en toda la app */
-    :focus-visible {
-        @apply outline-none;
-        box-shadow: var(--shadow-focus);
-        border-radius: 0.5rem;
-    }
-
-    /* Evita saltos de layout en formularios densos */
-    input, select, textarea, button {
-        font-family: inherit;
-    }
-
-    .app-shell {
-        position: relative;
-        background:
-            radial-gradient(78rem 42rem at 8% -12%, rgb(var(--primary-100) / 0.62) 0%, transparent 58%),
-            radial-gradient(62rem 38rem at 100% 0%, rgb(var(--primary-50) / 0.78) 0%, transparent 52%),
-            linear-gradient(180deg, rgb(var(--ink-50)) 0%, rgb(var(--ink-50)) 100%);
-    }
-
-    :root.dark .app-shell {
-        background:
-            radial-gradient(78rem 42rem at 8% -12%, rgb(var(--primary-100) / 0.18) 0%, transparent 58%),
-            radial-gradient(62rem 38rem at 100% 0%, rgb(var(--primary-200) / 0.10) 0%, transparent 52%),
-            linear-gradient(180deg, rgb(var(--ink-50)) 0%, rgb(var(--ink-50)) 100%);
-    }
+  /* Area tactil extendida: el control se ve compacto (p. ej. los +/- del
+     carrito) pero responde en 44px, como exige WCAG 2.5.5. Se usa sobre un
+     botón `relative`. */
+  .hit-area { @apply relative; }
+  .hit-area::after {
+    content: '';
+    @apply absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11;
+  }
 }
 
-/* =========================================================================
-   3. COMPONENTES
-   ========================================================================= */
 @layer components {
-    /* --- Superficies -------------------------------------------------- */
-    .surface {
-        @apply bg-surface/90 border border-white/55 rounded-3xl shadow-card backdrop-blur-sm;
-        box-shadow: var(--shadow-card), 0 1px 0 0 rgb(255 255 255 / 0.55) inset;
-    }
-
-    .surface-raised {
-        @apply bg-surface/95 border border-white/60 rounded-3xl shadow-card-lg backdrop-blur-md;
-        box-shadow: var(--shadow-card-lg), 0 1px 0 0 rgb(255 255 255 / 0.60) inset;
-    }
-
-    .surface-flat {
-        @apply bg-surface/95 border border-white/55 rounded-3xl;
-    }
-
-    .surface-muted {
-        @apply bg-ink-100/70 border border-white/50 rounded-3xl;
-    }
-
-    .modal-panel {
-        @apply bg-surface/95 border border-white/60 rounded-3xl shadow-panel backdrop-blur-xl;
-    }
-
-    /* Banda superior sutil que da profundidad a las tarjetas */
-    .surface::before,
-    .surface-raised::before {
-        content: "";
-        position: absolute;
-        inset: 0 0 auto 0;
-        height: 1px;
-        border-radius: inherit;
-        background: linear-gradient(90deg, transparent 0%, rgb(var(--primary-200) / 0.70) 22%, rgb(var(--primary-200) / 0.15) 78%, transparent 100%);
-        pointer-events: none;
-    }
-
-    .surface,
-    .surface-raised {
-        position: relative;
-    }
-
-    /* --- Botones ------------------------------------------------------- */
-    .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
-               text-sm font-semibold text-white
-               transition-all duration-150 ease-premium
-               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50
-               disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
-        background: linear-gradient(145deg, rgb(var(--brand-btn)) 0%, rgb(var(--brand-btn-hover)) 100%);
-        box-shadow: 0 8px 20px -10px rgb(var(--brand-btn) / 0.55), inset 0 1px 0 0 rgb(255 255 255 / 0.24);
-    }
-
-    .btn-primary:hover:not(:disabled) {
-        background: linear-gradient(145deg, rgb(var(--brand-btn-hover)) 0%, rgb(var(--brand-btn)) 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 12px 26px -12px rgb(var(--brand-btn) / 0.62), inset 0 1px 0 0 rgb(255 255 255 / 0.28);
-    }
-
-    .btn-primary:active:not(:disabled) {
-        transform: translateY(0);
-        box-shadow: none;
-    }
-
-    .btn-secondary {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
-               text-sm font-semibold text-ink-800 bg-surface border border-ink-200
-               transition-all duration-150 ease-premium
-               hover:bg-ink-100 hover:border-ink-300 hover:-translate-y-px
-               active:translate-y-0
-               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50
-               disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:translate-y-0;
-        box-shadow: var(--shadow-xs);
-    }
-
-    .btn-ghost {
-        @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2
-               text-sm font-medium text-ink-600
-               transition-colors duration-150
-               hover:bg-ink-100 hover:text-ink-900
-               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
-               disabled:opacity-50 disabled:cursor-not-allowed;
-    }
-
-    .btn-danger {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
-               text-sm font-semibold text-white
-               transition-all duration-150 ease-premium
-               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50
-               disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
-        background: rgb(var(--danger-btn));
-        box-shadow: var(--shadow-xs), inset 0 1px 0 0 rgb(255 255 255 / 0.16);
-    }
-
-    .btn-danger:hover:not(:disabled) {
-        background: rgb(var(--danger-btn-hover));
-        transform: translateY(-1px);
-    }
-
-    .btn-danger:active:not(:disabled) {
-        transform: translateY(0);
-    }
-
-    .btn-icon {
-        @apply inline-flex items-center justify-center rounded-lg text-ink-500
-               transition-colors duration-150
-               hover:bg-ink-100 hover:text-ink-800
-               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
-               disabled:opacity-50 disabled:cursor-not-allowed;
-    }
-
-    /* --- Campos -------------------------------------------------------- */
-    .input-field {
-        @apply w-full rounded-2xl border bg-elevated/90 px-4 py-3
-               text-sm text-ink-900 placeholder:text-ink-400 backdrop-blur-sm
-               transition-all duration-150;
-        border-color: rgb(var(--ink-200) / 0.85);
-        box-shadow: var(--field-shadow);
-    }
-
-    .input-field:hover:not(:disabled) {
-        border-color: rgb(var(--ink-300));
-    }
-
-    .input-field:focus {
-        @apply outline-none border-primary-400 bg-surface;
-        box-shadow: 0 0 0 4px rgb(var(--primary-500) / 0.16), 0 8px 22px -16px rgb(var(--primary-600) / 0.45);
-    }
-
-    .input-field:disabled {
-        @apply bg-ink-100/60 text-ink-500 cursor-not-allowed;
-    }
-
-    .input-label {
-        @apply block text-xs font-medium text-ink-700 mb-1.5;
-    }
-
-    .input-hint {
-        @apply text-xs text-ink-500 mt-1.5;
-    }
-
-    /* --- Badges -------------------------------------------------------- */
-    .badge {
-        @apply inline-flex items-center gap-1.5 rounded-full border border-white/45 px-3 py-1.5 text-[11px] font-semibold leading-none whitespace-nowrap backdrop-blur-sm;
-    }
-
-    .badge-neutral {
-        @apply badge bg-ink-100 text-ink-700;
-    }
-
-    .badge-success {
-        @apply badge bg-success-50 text-success-700;
-        box-shadow: inset 0 0 0 1px rgb(var(--success-200) / 0.9);
-    }
-
-    .badge-warning {
-        @apply badge bg-warning-50 text-warning-700;
-        box-shadow: inset 0 0 0 1px rgb(var(--warning-200) / 0.9);
-    }
-
-    .badge-danger {
-        @apply badge bg-danger-50 text-danger-700;
-        box-shadow: inset 0 0 0 1px rgb(var(--danger-200) / 0.9);
-    }
-
-    .badge-primary {
-        @apply badge bg-primary-50 text-primary-700;
-        box-shadow: inset 0 0 0 1px rgb(var(--primary-200) / 0.9);
-    }
-
-    /* --- Tablas -------------------------------------------------------- */
-    .table-head {
-        @apply bg-ink-50/80 border-b border-ink-200 text-left backdrop-blur-sm;
-    }
-
-    .table-head th {
-        @apply px-4 py-3 text-xs font-semibold tracking-wide text-ink-500;
-    }
-
-    .table-body td {
-        @apply px-4 py-3 text-sm text-ink-700 border-b border-ink-100/80;
-    }
-
-    .table-body tr:last-child td {
-        @apply border-b-0;
-    }
-
-    .table-body tbody tr {
-        @apply transition-colors duration-100 hover:bg-ink-50/80;
-    }
-
-    .table-shell {
-        @apply surface overflow-hidden;
-    }
-
-    .table-scroll {
-        @apply overflow-x-auto custom-scrollbar;
-    }
-
-    /* --- Encabezados de página ----------------------------------------- */
-    .page-title {
-        @apply text-[1.75rem] leading-tight font-bold text-ink-900 tracking-tight;
-    }
-
-    .page-subtitle {
-        @apply text-sm text-ink-500 mt-1;
-    }
-
-    .page-header {
-        @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
-    }
-
-    /* --- KPI ----------------------------------------------------------- */
-    .stat-card {
-        @apply surface relative overflow-hidden p-4 sm:p-5 flex flex-col gap-2 transition-all duration-300 ease-premium;
-    }
-
-    .stat-card::after {
-        content: "";
-        position: absolute;
-        inset: auto -35% -70% auto;
-        width: 72%;
-        height: 72%;
-        border-radius: 9999px;
-        background: radial-gradient(circle, rgb(var(--primary-100) / 0.42) 0%, transparent 68%);
-        pointer-events: none;
-    }
-
-    .stat-card:hover {
-        @apply shadow-card-lg -translate-y-0.5;
-    }
-
-    .stat-label {
-        @apply text-xs font-medium text-ink-500;
-    }
-
-    .stat-value {
-        @apply text-2xl font-bold text-ink-900 tracking-tight tabular-nums;
-    }
-
-    .stat-icon {
-        @apply h-9 w-9 rounded-xl flex items-center justify-center shrink-0;
-    }
-
-    /* --- Chip / segmentado --------------------------------------------- */
-    .chip {
-        @apply inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-surface
-               px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors duration-150
-               hover:bg-ink-100 hover:text-ink-800;
-    }
-
-    .chip-active {
-        @apply border-primary-300 bg-primary-50 text-primary-700;
-    }
-
-    .segmented {
-        @apply inline-flex items-center gap-1 rounded-xl border border-ink-200 bg-ink-100/70 p-1;
-    }
-
-    .segment {
-        @apply rounded-lg px-3 py-1.5 text-xs font-semibold text-ink-500 transition-all duration-150;
-    }
-
-    .segment-active {
-        @apply bg-surface text-ink-900 shadow-xs;
-    }
-
-    /* --- Divisor y secciones ------------------------------------------- */
-    .section-title {
-        @apply text-base font-semibold text-ink-900;
-    }
-
-    .section-label {
-        @apply text-xs font-semibold tracking-wide text-ink-500;
-    }
-
-    .divider {
-        @apply border-t border-ink-200/80;
-    }
-
-    .empty-state {
-        @apply flex flex-col items-center justify-center text-center py-14 px-6;
-    }
-
-    .empty-icon {
-        @apply h-14 w-14 rounded-2xl bg-ink-100 flex items-center justify-center mb-4;
-    }
-
-    /* --- Esqueleto de carga -------------------------------------------- */
-    .skeleton {
-        background-image: linear-gradient(
-            90deg,
-            rgb(var(--ink-100)) 0%,
-            rgb(var(--ink-200)) 45%,
-            rgb(var(--ink-100)) 90%
-        );
-        background-size: 200% 100%;
-        animation: shimmer 1.6s linear infinite;
-        @apply rounded-lg;
-    }
-
-    /* --- Barra de carga (LoadingProgress) ------------------------------ */
-    .loading-progress {
-        @apply rounded-2xl border border-ink-200/80 bg-surface px-4 py-3 shadow-xs;
-        animation: fadeIn 0.2s ease-out;
-    }
-
-    /* Al completarse se desvanece sin empujar el contenido de abajo. */
-    .loading-progress-done {
-        animation: loadingProgressOut 0.65s ease-out forwards;
-    }
-
-    /* --- Cabecera de tarjeta con acciones ------------------------------- */
-    .card-header {
-        @apply flex items-center justify-between gap-3 px-5 py-4 border-b border-ink-200/70;
-    }
-}
-
-/* =========================================================================
-   4. UTILIDADES
-   ========================================================================= */
-@layer utilities {
-    /* Safe-area aware spacing para elementos anclados al borde inferior */
-    .pb-safe {
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    .bottom-safe {
-        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    }
-
-    /* Garantiza el objetivo táctil mínimo de 48x48 CSS px (WCAG 2.2 AA) */
-    .touch-target {
-        @apply inline-flex items-center justify-center min-h-12 min-w-12;
-    }
-
-    .tabular-nums {
-        font-variant-numeric: tabular-nums;
-    }
-
-    .text-balance {
-        text-wrap: balance;
-    }
-}
-
-/* =========================================================================
-   Mobile readability & scrolling
-   -------------------------------------------------------------------------
-   Phones get a larger root scale and native document scrolling. The layout
-   keeps the fixed-height app shell only from `md` upward, so mobile users can
-   use the browser's normal momentum scroll and pull gestures.
-   ========================================================================= */
-@media screen and (max-width: 767px) {
-    html {
-        font-size: 17.5px;
-    }
-
-    body {
-        line-height: 1.55;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-y: contain;
-    }
-
-    /* Raise the smallest utility sizes without redesigning each screen. */
-    .text-xs {
-        font-size: 0.8125rem;
-        line-height: 1.45;
-    }
-
-    .text-sm {
-        font-size: 0.96875rem;
-        line-height: 1.5;
-    }
-
-    .text-base {
-        font-size: 1.0625rem;
-        line-height: 1.55;
-    }
-
-    .badge {
-        font-size: 0.75rem;
-        padding-top: 0.375rem;
-        padding-bottom: 0.375rem;
-    }
-
-    .input-label,
-    .input-hint {
-        font-size: 0.875rem;
-    }
-
-    .table-head th {
-        font-size: 0.8125rem;
-    }
-
-    .table-body td {
-        font-size: 1rem;
-        padding-top: 0.9375rem;
-        padding-bottom: 0.9375rem;
-    }
-}
-
-@keyframes loadingProgressOut {
-    to {
-        opacity: 0;
-    }
-}
-
-/* Estilos de impresión */
-@media print {
-    :root {
-        color-scheme: light;
-    }
-
-    ::-webkit-scrollbar {
-        display: none;
-    }
-
-    .no-print {
-        display: none !important;
-    }
-
-    body {
-        background: #fff !important;
-        color: #000 !important;
-    }
+  /* --- Superficies ------------------------------------------------------- */
+  /* 3D: la tarjeta "floata" sobre el lienzo con sombra multicapa; el borde
+     superior claro trae la luz y la sombra media genera la penumbra. */
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-line p-4 sm:p-5;
+  }
+  /* Tarjeta con feedback al pasar el cursor (listas navegables, KPIs clickeables).
+     Se eleva fisicamente: sube 2px y la sombra crece. */
+  .card-interactive {
+    @apply card transition-all duration-200
+           hover:shadow-card-hover hover:-translate-y-0.5 hover:border-line-strong
+           active:translate-y-0 active:shadow-card;
+  }
+
+  .page-title {
+    @apply text-2xl sm:text-[28px] font-extrabold text-ink tracking-[-0.02em] leading-tight;
+  }
+  .page-sub {
+    @apply text-[15px] text-ink-3 font-medium mt-1;
+  }
+  .section-title {
+    @apply text-[15px] font-extrabold text-ink tracking-tight;
+  }
+  .eyebrow {
+    @apply text-[11px] font-extrabold uppercase tracking-[0.12em] text-ink-3;
+  }
+
+  /* --- Botones: alto minimo 44px para dedos ------------------------------
+     Estilo 3D premium: la cara es un gradiente vertical (luz arriba), un
+     brillo inset interno remata el filo superior y una sombra proyectada
+     levanta el boton del lienzo. Al presionar, la sombra desaparece y se
+     invierte a sombra interna: el boton "se hunde" fisicamente. */
+  .btn, .btn-primary, .btn-success, .btn-danger, .btn-ghost, .btn-soft {
+    @apply inline-flex items-center justify-center gap-2 font-bold rounded-xl
+           min-h-[44px] px-4 text-sm transition-all duration-150
+           active:scale-[0.98] active:translate-y-px touch-manipulation
+           disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:active:scale-100 disabled:active:translate-y-0;
+  }
+  /* Marca: boton principal de la app. Azul royal, AA con blanco. */
+  .btn-primary {
+    @apply bg-gradient-to-b from-blue-600 to-blue-700 text-white
+           hover:from-blue-700 hover:to-blue-800
+           active:from-blue-700 active:to-blue-900;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.25),
+      0 2px 4px rgba(15, 23, 42, 0.12),
+      0 7px 18px -5px rgba(29, 78, 216, 0.45);
+  }
+  .btn-primary:not(:disabled):hover {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.20),
+      0 2px 4px rgba(15, 23, 42, 0.10),
+      0 9px 24px -5px rgba(29, 78, 216, 0.55);
+  }
+  .btn-primary:not(:disabled):active {
+    box-shadow:
+      inset 0 2px 6px rgba(15, 23, 42, 0.35),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  }
+  /* Confirmar entrada al almacén (verde profundo, pasa AA con blanco). */
+  .btn-success {
+    @apply bg-gradient-to-b from-emerald-700 to-emerald-800 text-white
+           hover:from-emerald-800 hover:to-emerald-900
+           active:from-emerald-800 active:to-emerald-900;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.25),
+      0 2px 4px rgba(15, 23, 42, 0.12),
+      0 7px 18px -5px rgba(4, 108, 78, 0.45);
+  }
+  .btn-success:not(:disabled):active {
+    box-shadow:
+      inset 0 2px 6px rgba(15, 23, 42, 0.35),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  }
+  /* Registrar salida: ámbar profundo en vez de rojo (no es un borrado). */
+  .btn-warning {
+    @apply inline-flex items-center justify-center gap-2 font-bold rounded-xl
+           min-h-[44px] px-4 text-sm transition-all duration-150
+           active:scale-[0.98] active:translate-y-px touch-manipulation
+           disabled:opacity-50 disabled:cursor-not-allowed
+           bg-gradient-to-b from-amber-700 to-amber-800 text-white
+           hover:from-amber-800 hover:to-amber-900
+           active:from-amber-800 active:to-amber-900;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.25),
+      0 2px 4px rgba(15, 23, 42, 0.12),
+      0 7px 18px -5px rgba(180, 83, 9, 0.45);
+  }
+  .btn-warning:not(:disabled):active {
+    box-shadow:
+      inset 0 2px 6px rgba(15, 23, 42, 0.35),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  }
+  .btn-danger {
+    @apply bg-gradient-to-b from-rose-600 to-rose-700 text-white
+           hover:from-rose-700 hover:to-rose-800
+           active:from-rose-700 active:to-rose-800;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.25),
+      0 2px 4px rgba(15, 23, 42, 0.12),
+      0 7px 18px -5px rgba(190, 18, 60, 0.45);
+  }
+  .btn-danger:not(:disabled):active {
+    box-shadow:
+      inset 0 2px 6px rgba(15, 23, 42, 0.35),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  }
+  /* Secundario: blanco elevado con luz de frente. */
+  .btn-ghost {
+    @apply bg-white text-ink-2 border border-line-strong
+           hover:border-blue-300 hover:text-blue-800;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 1px 2px rgba(15, 23, 42, 0.06),
+      0 4px 12px -4px rgba(15, 23, 42, 0.10);
+  }
+  .btn-ghost:not(:disabled):hover {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 2px 4px rgba(15, 23, 42, 0.06),
+      0 7px 18px -5px rgba(15, 23, 42, 0.16);
+  }
+  .btn-ghost:not(:disabled):active {
+    box-shadow: inset 0 2px 5px rgba(15, 23, 42, 0.18);
+  }
+  /* Terciario: tinte azul suave, sin relieve fuerte. */
+  .btn-soft {
+    @apply bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+  .btn-block { @apply w-full; }
+  /* Boton-icono cuadrado, 44x44 (area tactil comoda en filas de tabla). */
+  .btn-icon {
+    @apply inline-flex items-center justify-center h-11 w-11 rounded-xl
+           text-ink-3 hover:bg-paper hover:text-blue-800 transition-colors
+           touch-manipulation disabled:opacity-40;
+  }
+
+  /* --- Campos ------------------------------------------------------------ */
+  .input {
+    @apply w-full px-3.5 min-h-[48px] py-3 bg-white border border-line-strong rounded-xl
+           text-base text-ink placeholder:text-ink-3/70
+           hover:border-blue-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-600 transition;
+    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+  .label {
+    @apply block text-[13px] font-bold text-ink-2 mb-1.5;
+  }
+  .select {
+    @apply input pr-9 appearance-none bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.85rem center;
+  }
+
+  /* --- Etiquetas de estado ----------------------------------------------
+     Pares verificados AA (texto >= 4.5:1 sobre su fondo). */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full whitespace-nowrap;
+  }
+  .badge-entry { @apply badge bg-blue-100 text-blue-900; }
+  .badge-exit { @apply badge bg-amber-200 text-amber-900; }
+  .badge-sale { @apply badge bg-emerald-200 text-emerald-900; }
+  .badge-admin { @apply badge bg-indigo-100 text-indigo-900; }
+  .badge-muted { @apply badge bg-paper-deep text-ink-2; }
+
+  /* --- Tablas ------------------------------------------------------------ */
+  .table-wrap { @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0; }
+  .table { @apply min-w-full text-sm; }
+  .table thead th {
+    @apply px-4 py-3 text-left text-[11px] font-extrabold text-ink-3 uppercase tracking-[0.08em]
+           bg-paper border-b border-line whitespace-nowrap;
+  }
+  .table tbody td { @apply px-4 py-3 text-ink-2; }
+  .table tbody tr { @apply bg-white transition-colors; }
+  .table tbody tr + tr { @apply border-t border-line/70; }
+  .table tbody tr:hover { @apply bg-blue-50/60; }
+
+  /* --- Capas: un solo orden de z ----------------------------------------
+     El overlay va en z-40 y el panel por ENCIMA (z-10 dentro del contenedor
+     z-50). Sin `relative`+`z` el panel se pinta debajo del overlay en algunos
+     navegadores, sobre todo si el navegador aplica transform durante la
+     animacion de entrada. */
+  .overlay {
+    @apply fixed inset-0 z-40 bg-ink/60 backdrop-blur-sm animate-fade-in;
+  }
+  .modal {
+    @apply relative z-10 bg-white w-full rounded-t-3xl sm:rounded-2xl shadow-pop
+           max-h-[92vh] max-h-[92dvh] overflow-y-auto overscroll-contain
+           animate-slide-up sm:animate-scale-in;
+  }
+  .drag-handle {
+    @apply sm:hidden flex justify-center pt-2.5 pb-1;
+  }
+  .drag-handle > span {
+    @apply w-12 h-1 bg-line-strong rounded-full;
+  }
+
+  /* --- Carga ------------------------------------------------------------- */
+  .skeleton {
+    @apply bg-paper-deep rounded-lg animate-pulse;
+  }
+
+  /* --- Tarjeta de KPI ---------------------------------------------------- */
+  /* Banda de acento superior + icono en capsula + brillo de luz blanco que
+     baja en diagonal (efecto vidrio pulido). El color lo decide la vista
+     con una clase `kpi-*`, así el componente queda genérico. */
+  .kpi {
+    @apply relative bg-white rounded-2xl border border-line shadow-card p-4 overflow-hidden
+           transition-all duration-200;
+  }
+  .kpi::before {
+    content: '';
+    @apply absolute inset-x-0 top-0 h-1 bg-line-strong;
+  }
+  .kpi::after {
+    content: '';
+    @apply absolute -top-8 -right-8 h-28 w-28 rounded-full pointer-events-none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), transparent 70%);
+  }
+  .kpi:hover { @apply shadow-card-hover -translate-y-0.5; }
+  .kpi-brand::before { @apply bg-blue-500; }
+  .kpi-entry::before { @apply bg-sky-600; }
+  .kpi-exit::before { @apply bg-amber-600; }
+  .kpi-value { @apply text-3xl leading-none font-extrabold text-ink tracking-tight tnum; }
+  /* Icono con placa hundida: contrapeso del relieve de la tarjeta. */
+  .kpi-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-xl;
+    box-shadow:
+      inset 0 2px 4px rgba(15, 23, 42, 0.10),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.85),
+      0 1px 0 rgba(255, 255, 255, 0.7);
+  }
 }

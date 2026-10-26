@@ -1,0 +1,50 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Modelo por defecto (cámbialo con /models)
+  "model": "codecraft/claude-sonnet-5",
+  "providers": {
+    "codecraft": {
+      "name": "CodeCraft API",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "https://codecraftapi.com/v1",
+        "apiKey": "{file:.secrets/codecraft.key}"
+      },
+      "models": {
+        "gpt-5.5": { "name": "GPT-5.5" },
+        "gpt-5.5-pro": { "name": "GPT-5.5 Pro" },
+        "gpt-5.6-sol": { "name": "GPT-5.6 Sol" },
+        "gpt-5.6-terra": { "name": "GPT-5.6 Terra" },
+        "gpt-5.6-luna": { "name": "GPT-5.6 Luna" },
+        "claude-sonnet-5": { "name": "Claude Sonnet 5" },
+        "claude-opus-5": { "name": "Claude Opus 5" },
+        "claude-opus-5.5": { "name": "Claude Opus 5.5" },
+        "claude-opus-4.6": { "name": "Claude Opus 4.6" },
+        "claude-opus-4.7": { "name": "Claude Opus 4.7" },
+        "claude-opus-4.8": { "name": "Claude Opus 4.8" },
+        "claude-fable-5": { "name": "Claude Fable 5" },
+        "claude-fable-5.1": { "name": "Claude Fable 5.1" },
+        "claude-mythos-preview": { "name": "Claude Mythos (preview)" },
+        "gemini-3.1-pro": { "name": "Gemini 3.1 Pro" },
+        "gemini-3.6-flash": { "name": "Gemini 3.6 Flash" },
+        "gemini-3.7-flash": { "name": "Gemini 3.7 Flash" },
+        "grok-4.5": { "name": "Grok 4.5" },
+        "grok-4.6": { "name": "Grok 4.6" },
+        "deepseek-v4-flash-0731": { "name": "DeepSeek V4 Flash" },
+        "deepseek-v4-pro-0813": { "name": "DeepSeek V4 Pro" },
+        "deepseek-v4-pro-max": { "name": "DeepSeek V4 Pro Max" },
+        "qwen3.7-max": { "name": "Qwen 3.7 Max" },
+        "qwen3.8-max": { "name": "Qwen 3.8 Max" },
+        "qwen3.8-27b": { "name": "Qwen 3.8 27B" },
+        "glm-5.2": { "name": "GLM 5.2" },
+        "glm-5.3": { "name": "GLM 5.3" },
+        "kimi-k2.6": { "name": "Kimi K2.6" },
+        "kimi-k3": { "name": "Kimi K3" },
+        "seed-2.1-pro": { "name": "Seed 2.1 Pro" },
+        "seed-2.1-turbo": { "name": "Seed 2.1 Turbo" },
+        "muse-spark-1.1": { "name": "Muse Spark 1.1" },
+        "gemma-2-2b": { "name": "Gemma 2 2B" }
+      }
+    }
+  }
+}

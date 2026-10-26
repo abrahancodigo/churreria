@@ -1,498 +1,427 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
     ArrowDownLeft,
     ArrowUpRight,
     X,
-    FileText,
-    Edit,
-    Calendar,
     Package,
     User,
-    Boxes,
-    Layers,
-    Info,
-    ArrowRightLeft,
+    Calendar,
+    ChevronLeft,
+    ChevronRight,
+    ChevronRight as ChevronRightSm,
+    Plus,
+    LayoutDashboard,
+    Store,
+    Coins,
+    AlertTriangle,
+    Printer,
+    FileDown,
 } from "lucide-react";
+import { db } from "../firebase.config";
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
-import { getProducts } from "../services/productService";
-import { getDashboardUsers, getTransactionsByTypeAndRange } from "../services/dashboardService";
-import { formatCurrency } from "../lib/formatters";
-import MovementPanel from "../components/MovementPanel";
+import { getProducts } from "../lib/db";
+import { buildReceiptHtml, printHtmlDocument, openHtmlDocument } from "../lib/receipt";
+import { useToast } from "../hooks/useToast";
+import { useCompany } from "../hooks/useCompany";
+import { PageHeader, EmptyState, ListSkeleton, StatCard } from "../components/ui";
+
+const money = (value) =>
+    "$" + Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function useUsersMap() {
+    const [users, setUsers] = useState({});
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"));
+                const snapshot = await getDocs(q);
+                const ids = new Set();
+                snapshot.docs.forEach((d) => {
+                    if (d.data().userId) ids.add(d.data().userId);
+                });
+                const map = {};
+                for (const id of ids) {
+                    try {
+                        const snap = await getDoc(doc(db, "users", id));
+                        map[id] = snap.exists()
+                            ? { email: snap.data().email || id, name: snap.data().name || snap.data().email || id }
+                            : { email: id, name: id };
+                    } catch {
+                        map[id] = { email: id, name: id };
+                    }
+                }
+                setUsers(map);
+            } catch (e) {
+                console.error("Error fetching users:", e);
+            }
+        };
+        fetchUsers();
+    }, []);
+    return users;
+}
+
+function useMovements(type, start, end) {
+    const [data, setData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const q = query(collection(db, "transactions"), where("type", "==", type), orderBy("timestamp", "desc"));
+                const snap = await getDocs(q);
+                const s = startOfDay(start);
+                const e = endOfDay(end);
+                setData(
+                    snap.docs
+                        .map((d) => ({ id: d.id, ...d.data() }))
+                        .filter((tx) => {
+                            const t = tx.timestamp?.toDate ? tx.timestamp.toDate() : null;
+                            return t && t >= s && t <= e;
+                        })
+                );
+            } catch (err) {
+                console.error(`Error fetching ${type}:`, err);
+                setData([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [type, start, end]);
+    return { data, loading };
+}
+
+function rowTotal(tx, products) {
+    return (
+        tx.items?.reduce((sum, item) => {
+            const p = products.find((x) => x.id === item.productId);
+            return sum + (Number(p?.cost ?? item.cost ?? 0) * Number(item.quantity));
+        }, 0) || 0
+    );
+}
 
 export default function Dashboard() {
     const [products, setProducts] = useState([]);
-    const [users, setUsers] = useState({}); // Mapa de usuarios: { uid: { email, name } }
-    const [entries, setEntries] = useState([]);
-    const [exits, setExits] = useState([]);
-    const [viewingTransaction, setViewingTransaction] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loadingProducts, setLoadingProducts] = useState(true);
+    const [viewingTx, setViewingTx] = useState(null);
 
-    // Estado para el saldo del inventario
-    const [inventoryBalance, setInventoryBalance] = useState(0);
-    const [totalItems, setTotalItems] = useState(0);
+    const now = useMemo(() => new Date(), []);
+    const [rangeStart, setRangeStart] = useState(() => startOfMonth(new Date()));
+    const [rangeEnd, setRangeEnd] = useState(() => endOfMonth(new Date()));
 
-    // Inicializar con el mes actual
-    const currentMonth = startOfMonth(new Date());
-    const currentMonthEnd = endOfMonth(new Date());
-
-    // Estado para fechas - Entradas
-    const [entryStartDate, setEntryStartDate] = useState(currentMonth);
-    const [entryEndDate, setEntryEndDate] = useState(currentMonthEnd);
-
-    // Estado para fechas - Salidas
-    const [exitStartDate, setExitStartDate] = useState(currentMonth);
-    const [exitEndDate, setExitEndDate] = useState(currentMonthEnd);
-
-    const productsById = useMemo(
-        () => new Map(products.map((product) => [product.id, product])),
-        [products],
-    );
+    const users = useUsersMap();
+    const { data: entries, loading: loadingEntries } = useMovements("entry", rangeStart, rangeEnd);
+    const { data: exits, loading: loadingExits } = useMovements("exit", rangeStart, rangeEnd);
 
     useEffect(() => {
-        const unsubscribeProducts = getProducts((data) => {
+        const unsub = getProducts((data) => {
             setProducts(data);
-
-            // Calcular saldo del inventario: costo × stock
-            const balance = data.reduce((acc, p) => {
-                return acc + (Number(p.cost || 0) * Number(p.stock || 0));
-            }, 0);
-            const totalItems = data.reduce((acc, p) => acc + Number(p.stock || 0), 0);
-
-            setInventoryBalance(balance);
-            setTotalItems(totalItems);
+            setLoadingProducts(false);
         });
-
-        return () => unsubscribeProducts();
+        return () => unsub();
     }, []);
 
-    // Cargar los usuarios que aparecen en los movimientos del periodo actual.
-    useEffect(() => {
-        const userIds = [...new Set([...entries, ...exits]
-            .map((transaction) => transaction.userId)
-            .filter((userId) => userId && !users[userId]))];
+    const balance = useMemo(
+        () => products.reduce((acc, p) => acc + Number(p.cost || 0) * Number(p.stock || 0), 0),
+        [products]
+    );
+    const totalItems = useMemo(() => products.reduce((acc, p) => acc + Number(p.stock || 0), 0), [products]);
+    const totalEntries = useMemo(() => entries.reduce((a, tx) => a + rowTotal(tx, products), 0), [entries, products]);
+    const totalExits = useMemo(() => exits.reduce((a, tx) => a + rowTotal(tx, products), 0), [exits, products]);
+    const lowStock = useMemo(() => products.filter((p) => Number(p.stock) <= 10).length, [products]);
 
-        if (userIds.length === 0) return undefined;
-
-        getDashboardUsers(userIds).then((userData) => {
-            setUsers((current) => ({ ...current, ...userData }));
-        });
-
-        return () => {};
-    }, [entries, exits, users]);
-
-    // Fetch entradas cuando cambian las fechas
-    useEffect(() => {
-        const fetchEntries = async () => {
-            try {
-                const start = startOfDay(entryStartDate);
-                const end = endOfDay(entryEndDate);
-
-                const entriesData = await getTransactionsByTypeAndRange("entry", start, end);
-                setEntries(entriesData);
-            } catch (error) {
-                console.error("Error fetching entries:", error);
-                setEntries([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchEntries();
-    }, [entryStartDate, entryEndDate]);
-
-    // Fetch salidas cuando cambian las fechas
-    useEffect(() => {
-        const fetchExits = async () => {
-            try {
-                const start = startOfDay(exitStartDate);
-                const end = endOfDay(exitEndDate);
-
-                const exitsData = await getTransactionsByTypeAndRange("exit", start, end);
-                setExits(exitsData);
-            } catch (error) {
-                console.error("Error fetching exits:", error);
-                setExits([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchExits();
-    }, [exitStartDate, exitEndDate]);
-
-    const handleViewTransaction = (tx) => {
-        setViewingTransaction(tx);
-    };
-
-    const getMovementTotal = (transactions) => transactions.reduce((total, transaction) => (
-        total + (transaction.items?.reduce((subtotal, item) => {
-            const product = productsById.get(item.productId);
-            const cost = Number(product?.cost ?? item.cost ?? 0);
-            return subtotal + cost * Number(item.quantity || 0);
-        }, 0) || 0)
-    ), 0);
-
-    const totalEntries = getMovementTotal(entries);
-    const totalExits = getMovementTotal(exits);
-
-    // Navegación de meses
-    const previousMonth = (type) => {
-        const current = type === 'entry' ? entryStartDate : exitStartDate;
-        const prev = new Date(current.getFullYear(), current.getMonth() - 1, 1);
-        if (type === 'entry') {
-            setEntryStartDate(startOfMonth(prev));
-            setEntryEndDate(endOfMonth(prev));
+    const shiftMonth = (delta) => {
+        const base = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + delta, 1);
+        if (delta > 0 && (base.getFullYear() > now.getFullYear() ||
+            (base.getFullYear() === now.getFullYear() && base.getMonth() > now.getMonth()))) {
+            setRangeStart(startOfMonth(now));
+            setRangeEnd(endOfMonth(now));
         } else {
-            setExitStartDate(startOfMonth(prev));
-            setExitEndDate(endOfMonth(prev));
+            setRangeStart(startOfMonth(base));
+            setRangeEnd(endOfMonth(base));
         }
     };
 
-    const nextMonth = (type) => {
-        const current = type === 'entry' ? entryStartDate : exitStartDate;
-        const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-        const now = new Date();
-
-        if (next.getMonth() > now.getMonth() || next.getFullYear() > now.getFullYear()) {
-            if (type === 'entry') {
-                setEntryStartDate(startOfMonth(now));
-                setEntryEndDate(endOfMonth(now));
-            } else {
-                setExitStartDate(startOfMonth(now));
-                setExitEndDate(endOfMonth(now));
-            }
-        } else {
-            if (type === 'entry') {
-                setEntryStartDate(startOfMonth(next));
-                setEntryEndDate(endOfMonth(next));
-            } else {
-                setExitStartDate(startOfMonth(next));
-                setExitEndDate(endOfMonth(next));
-            }
-        }
-    };
-
-    const resetToCurrentMonth = (type) => {
-        const now = new Date();
-        if (type === 'entry') {
-            setEntryStartDate(startOfMonth(now));
-            setEntryEndDate(endOfMonth(now));
-        } else {
-            setExitStartDate(startOfMonth(now));
-            setExitEndDate(endOfMonth(now));
-        }
-    };
-
-    const kpis = [
-        {
-            label: "Valor del inventario",
-            value: formatCurrency(inventoryBalance),
-            hint: "Suma de costo × stock",
-            icon: Package,
-            tone: "primary",
-        },
-        {
-            label: "Productos",
-            value: products.length,
-            hint: "Referencias activas",
-            icon: Boxes,
-            tone: "success",
-        },
-        {
-            label: "Items en stock",
-            value: totalItems,
-            hint: "Unidades totales",
-            icon: Layers,
-            tone: "warning",
-        },
-        {
-            label: "Movimientos cargados",
-            value: entries.length + exits.length,
-            hint: `${entries.length} entradas · ${exits.length} salidas`,
-            icon: ArrowRightLeft,
-            tone: "danger",
-        },
-    ];
-
-    const toneClasses = {
-        primary: "bg-primary-50 text-primary-700",
-        success: "bg-success-50 text-success-700",
-        warning: "bg-warning-50 text-warning-700",
-        danger: "bg-danger-50 text-danger-700",
-        neutral: "bg-ink-100 text-ink-600",
-    };
+    const loading = loadingProducts || loadingEntries || loadingExits;
+    const isCurrentMonth = rangeStart.getMonth() === now.getMonth() && rangeStart.getFullYear() === now.getFullYear();
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <header className="page-header">
-                <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary-700">Resumen de tu tienda</p>
-                    <h1 className="page-title">Tu tienda, de un vistazo</h1>
-                    <p className="page-subtitle">Existencias y movimientos de almacén en un solo lugar.</p>
-                </div>
-                <div className="flex flex-wrap gap-2.5">
-                    <Link to="/stock-adjustments" className="btn-secondary self-start sm:self-auto">
-                        <Edit className="h-4 w-4" />
-                        Registrar movimiento
+        <div>
+            <PageHeader
+                title="Inicio"
+                sub="Movimientos de almacén y valor del inventario"
+                icon={LayoutDashboard}
+                accent="brand"
+                action={
+                    <Link to="/stock-adjustments" className="btn-primary !py-2.5">
+                        <Plus className="h-5 w-5" />
+                        <span className="hidden sm:inline">Nuevo movimiento</span>
+                        <span className="sm:hidden">Nuevo</span>
                     </Link>
-                </div>
-            </header>
+                }
+            />
 
             {/* KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {kpis.map((kpi) => {
-                    const Icon = kpi.icon;
-                    return (
-                        <div key={kpi.label} className="stat-card">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="stat-label">{kpi.label}</p>
-                                    <p className="stat-value truncate mt-1">
-                                        {kpi.value}
-                                    </p>
-                                    <p className="text-xs text-ink-500 mt-1">{kpi.hint}</p>
-                                </div>
-                                <div className={`stat-icon ${toneClasses[kpi.tone]}`}>
-                                    <Icon className="h-[18px] w-[18px]" />
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Movement panels */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <MovementPanel
-                    title="Entradas"
-                    type="entry"
-                    transactions={entries}
-                    total={totalEntries}
-                    startDate={entryStartDate}
-                    endDate={entryEndDate}
-                    loading={loading}
-                    productsById={productsById}
-                    onPrevious={() => previousMonth("entry")}
-                    onNext={() => nextMonth("entry")}
-                    onReset={() => resetToCurrentMonth("entry")}
-                    onViewTransaction={handleViewTransaction}
-                    onDateSelect={(start, end) => {
-                        setEntryStartDate(start);
-                        setEntryEndDate(end);
-                    }}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                <StatCard
+                    label="Entradas"
+                    value={money(totalEntries)}
+                    hint={`${entries.length} movimientos`}
                     icon={ArrowDownLeft}
+                    accent="entry"
+                    valueTone="text-sky-700"
                 />
-
-                <MovementPanel
-                    title="Salidas"
-                    type="exit"
-                    transactions={exits}
-                    total={totalExits}
-                    startDate={exitStartDate}
-                    endDate={exitEndDate}
-                    loading={loading}
-                    productsById={productsById}
-                    onPrevious={() => previousMonth("exit")}
-                    onNext={() => nextMonth("exit")}
-                    onReset={() => resetToCurrentMonth("exit")}
-                    onViewTransaction={handleViewTransaction}
-                    onDateSelect={(start, end) => {
-                        setExitStartDate(start);
-                        setExitEndDate(end);
-                    }}
+                <StatCard
+                    label="Salidas"
+                    value={money(totalExits)}
+                    hint={`${exits.length} movimientos`}
                     icon={ArrowUpRight}
+                    accent="exit"
+                    valueTone="text-amber-800"
                 />
+                <StatCard
+                    label="Inventario"
+                    value={money(balance)}
+                    hint={`${products.length} productos · ${totalItems} uds`}
+                    icon={Coins}
+                    accent="emerald"
+                    valueTone="text-emerald-800"
+                />
+                <Link to="/inventory" className="block">
+                    <StatCard
+                        label="Stock bajo"
+                        value={lowStock}
+                        hint="Ver inventario →"
+                        icon={AlertTriangle}
+                        accent="brand"
+                        valueTone={lowStock > 0 ? "text-rose-700" : "text-ink"}
+                    />
+                </Link>
             </div>
 
-            {/* Inventory balance */}
-            <section className="surface p-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                    <div>
-                        <p className="section-label">Saldo de inventario</p>
-                        <p className="mt-2 text-3xl font-bold text-ink-900 tracking-tight tabular-nums">
-                            {formatCurrency(inventoryBalance)}
-                        </p>
-                        <p className="mt-1 text-sm text-ink-500">
-                            Inversión total en mercancía disponible, valorada a costo.
-                        </p>
-                    </div>
-                    <div className="surface-muted flex items-start gap-2.5 p-4 max-w-sm">
-                        <Info className="h-4 w-4 text-ink-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-ink-600 leading-relaxed">
-                            Se calcula sumando <strong className="font-semibold text-ink-800">costo × stock</strong> de cada
-                            producto del inventario.
-                        </p>
-                    </div>
+            {/* Selector de periodo */}
+            <div className="card !p-2 mb-4 flex items-center gap-1.5">
+                <button onClick={() => shiftMonth(-1)} aria-label="Mes anterior"
+                    className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-paper text-ink-2 transition-colors">
+                    <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                    onClick={() => { setRangeStart(startOfMonth(now)); setRangeEnd(endOfMonth(now)); }}
+                    className={`flex-1 flex items-center justify-center gap-2 min-h-[44px] px-3 rounded-xl font-bold text-sm capitalize transition-colors
+                        ${isCurrentMonth ? "bg-brand-50 text-brand-700" : "bg-paper text-ink-2 hover:bg-paper-deep"}`}>
+                    <Calendar className="h-4 w-4" />
+                    {format(rangeStart, "MMMM yyyy", { locale: es })}
+                    {isCurrentMonth && <span className="badge bg-white text-brand-700 ring-1 ring-brand-200">Actual</span>}
+                </button>
+                <button onClick={() => shiftMonth(1)} aria-label="Mes siguiente"
+                    className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-paper text-ink-2 transition-colors">
+                    <ChevronRight className="h-5 w-5" />
+                </button>
+            </div>
+
+            {loading ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <ListSkeleton rows={4} />
+                    <ListSkeleton rows={4} />
                 </div>
-            </section>
-
-            {/* Transaction Detail Modal */}
-            {viewingTransaction && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim/60 p-4 animate-fade-in"
-                    onClick={() => setViewingTransaction(null)}
-                >
-                    <div
-                        className="modal-panel relative max-w-3xl w-full max-h-[90dvh] overflow-y-auto animate-scale-in"
-                        onClick={(e) => e.stopPropagation()}
-                        role="dialog"
-                        aria-modal="true"
-                    >
-                        {/* Modal Header */}
-                        <div className="sticky top-0 bg-surface border-b border-ink-200/70 px-6 py-4 flex items-center justify-between z-10">
-                            <div className="flex items-center gap-3">
-                                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                                    viewingTransaction.type === 'entry'
-                                        ? 'bg-success-50 text-success-600'
-                                        : 'bg-warning-50 text-warning-600'
-                                }`}>
-                                    {viewingTransaction.type === 'entry'
-                                        ? <ArrowDownLeft className="h-5 w-5" />
-                                        : <ArrowUpRight className="h-5 w-5" />
-                                    }
-                                </div>
-                                <div className="min-w-0">
-                                    <h3 className="section-title">
-                                        {viewingTransaction.type === 'entry' ? 'Entrada de almacén' : 'Salida de almacén'}
-                                    </h3>
-                                    <p className="text-xs text-ink-500 truncate">
-                                        {viewingTransaction.reference || 'Sin referencia'}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setViewingTransaction(null)}
-                                className="btn-icon h-10 w-10 rounded-xl -mr-2"
-                                title="Cerrar"
-                                aria-label="Cerrar"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        {/* Modal Content */}
-                        <div className="p-6 space-y-6">
-                            {/* Info Cards */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {[
-                                    {
-                                        icon: Calendar,
-                                        label: "Fecha",
-                                        value: viewingTransaction.timestamp?.toDate
-                                            ? format(viewingTransaction.timestamp.toDate(), "dd/MM/yyyy")
-                                            : '--',
-                                    },
-                                    {
-                                        icon: User,
-                                        label: "Usuario",
-                                        value: users[viewingTransaction.userId]?.name || viewingTransaction.userId || 'N/A',
-                                        title: users[viewingTransaction.userId]?.email || viewingTransaction.userId,
-                                    },
-                                    {
-                                        icon: Package,
-                                        label: "Productos",
-                                        value: viewingTransaction.items?.length || 0,
-                                    },
-                                    {
-                                        icon: FileText,
-                                        label: "Sucursal",
-                                        value: viewingTransaction.sucursal || 'Principal',
-                                    },
-                                ].map((info) => {
-                                    const Icon = info.icon;
-                                    return (
-                                        <div key={info.label} className="surface-muted p-4">
-                                            <div className="flex items-center gap-1.5 mb-1.5">
-                                                <Icon className="h-3.5 w-3.5 text-ink-400" />
-                                                <p className="section-label">{info.label}</p>
-                                            </div>
-                                            <p className="text-sm font-semibold text-ink-900 truncate" title={info.title}>
-                                                {info.value}
-                                            </p>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Items Table */}
-                            <div>
-                                <h4 className="section-label mb-3">Detalle de productos</h4>
-                                <div className="table-shell">
-                                    <div className="table-scroll">
-                                        <table className="min-w-full">
-                                            <thead className="table-head">
-                                                <tr>
-                                                    <th>#</th>
-                                                    <th>Producto</th>
-                                                    <th className="text-center">Cantidad</th>
-                                                    <th className="text-right">Costo unit.</th>
-                                                    <th className="text-right">Subtotal</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="table-body">
-                                                {viewingTransaction.items?.map((item, idx) => {
-                                                    const product = productsById.get(item.productId);
-                                                    const cost = viewingTransaction.type === 'entry' || viewingTransaction.type === 'exit'
-                                                        ? Number(product?.cost || item.cost || 0)
-                                                        : Number(product?.price || item.price || 0);
-                                                    const subtotal = cost * Number(item.quantity);
-
-                                                    return (
-                                                        <tr key={idx}>
-                                                            <td className="text-ink-400 tabular-nums">{idx + 1}</td>
-                                                            <td className="font-medium text-ink-900">{item.name}</td>
-                                                            <td className="text-center">
-                                                                <span className="badge-primary tabular-nums">{item.quantity}</span>
-                                                            </td>
-                                                            <td className="text-right tabular-nums">{formatCurrency(cost)}</td>
-                                                            <td className="text-right font-semibold text-ink-900 tabular-nums">
-                                                                {formatCurrency(subtotal)}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                            <tfoot className="bg-ink-50 border-t border-ink-200">
-                                                <tr>
-                                                    <td colSpan="4" className="px-4 py-3 text-right section-label">Total</td>
-                                                    <td className="px-4 py-3 text-right text-base font-bold text-ink-900 tabular-nums">
-                                                        {formatCurrency(viewingTransaction.total)}
-                                                    </td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Notes */}
-                            {viewingTransaction.notes && (
-                                <div>
-                                    <h4 className="section-label mb-2">Notas y observaciones</h4>
-                                    <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
-                                        <p className="text-sm text-ink-700 leading-relaxed">
-                                            {viewingTransaction.notes}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Additional Info */}
-                            <div className="surface-muted px-4 py-3 flex items-center justify-between text-xs text-ink-500">
-                                <span className="truncate">ID: {viewingTransaction.id}</span>
-                                <span className="tabular-nums shrink-0 ml-3">
-                                    {viewingTransaction.timestamp?.toDate
-                                        ? format(viewingTransaction.timestamp.toDate(), "HH:mm:ss")
-                                        : '--:--:--'
-                                    }
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <MovementCard title="Entradas" kind="entry" data={entries} total={totalEntries}
+                        products={products} onView={setViewingTx} />
+                    <MovementCard title="Salidas" kind="exit" data={exits} total={totalExits}
+                        products={products} onView={setViewingTx} />
                 </div>
             )}
+
+            {/* Detalle del movimiento */}
+            {viewingTx && (
+                <TxDetailModal tx={viewingTx} products={products} users={users} onClose={() => setViewingTx(null)} />
+            )}
         </div>
+    );
+}
+
+function MovementCard({ title, kind, data, total, products, onView }) {
+    const isEntry = kind === "entry";
+    const Icon = isEntry ? ArrowDownLeft : ArrowUpRight;
+    // Banda de color superior por tipo: misma leyenda visual que los KPIs.
+    const band = isEntry ? "bg-sky-600" : "bg-amber-600";
+    return (
+        <section className="card !p-0 overflow-hidden relative">
+            <span className={`absolute inset-x-0 top-0 h-1 ${band}`} aria-hidden="true" />
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 pt-5 pb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0
+                        ${isEntry ? "bg-sky-50 text-sky-700" : "bg-amber-50 text-amber-800"}`}>
+                        <Icon className="h-5 w-5" strokeWidth={2.4} />
+                    </span>
+                    <div className="min-w-0">
+                        <h2 className="section-title">{title}</h2>
+                        <p className="text-xs font-semibold text-ink-3">{data.length} en el periodo</p>
+                    </div>
+                </div>
+                <p className={`text-lg font-extrabold tnum whitespace-nowrap ${isEntry ? "text-sky-700" : "text-amber-800"}`}>
+                    {money(total)}
+                </p>
+            </div>
+            {data.length === 0 ? (
+                <div className="px-4 sm:px-5 pb-5">
+                    <EmptyState accent={kind} icon={Package}
+                        title={`Sin ${title.toLowerCase()} en este periodo`}
+                        hint="Crea un movimiento desde «Nuevo movimiento»." />
+                </div>
+            ) : (
+                <ul className="divide-y divide-line max-h-[380px] overflow-y-auto">
+                    {data.map((tx) => (
+                        <li key={tx.id}>
+                            <button onClick={() => onView(tx)}
+                                className="group w-full text-left px-4 sm:px-5 py-3.5 hover:bg-brand-50/40 flex items-center gap-3 transition-colors">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-ink truncate text-sm">
+                                        {tx.reference ? `Folio ${tx.reference}` : "Sin referencia"}
+                                    </p>
+                                    <p className="text-xs text-ink-3 truncate">
+                                        {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), "dd/MM/yyyy") : "--"}
+                                        {" · "}
+                                        <Store className="inline h-3 w-3 -mt-0.5" /> {tx.sucursal || "Principal"}
+                                    </p>
+                                </div>
+                                <span className="font-extrabold text-sm text-ink tnum whitespace-nowrap">
+                                    {money(rowTotal(tx, products))}
+                                </span>
+                                <ChevronRightSm className="h-4 w-4 text-ink-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+function TxDetailModal({ tx, products, users, onClose }) {
+    const isEntry = tx.type === "entry";
+    const { addToast } = useToast();
+    const company = useCompany();
+
+    // El comprobante se arma bajo demanda: el modal abre al instante y generar
+    // el documento A4 (que mide y pagina) solo cuesta cuando se pide.
+    const receiptHtml = () => buildReceiptHtml(tx, company);
+
+    const handlePrint = () => {
+        if (!printHtmlDocument(receiptHtml())) {
+            addToast("Permite las ventanas emergentes para imprimir", "error");
+        }
+    };
+
+    const handlePdf = () => {
+        if (!openHtmlDocument(receiptHtml())) {
+            addToast("Permite las ventanas emergentes para descargar el PDF", "error");
+            return;
+        }
+        addToast("Selecciona «Guardar como PDF» en el visor de impresión");
+    };
+
+    // El panel se monta en <body>: dentro de <main> hereda contenedores con
+    // `transform`/`overflow` que pueden dejarlo detras del fondo oscuro.
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === "Escape") onClose(); };
+        document.addEventListener("keydown", onKey);
+        const { body } = document;
+        const prevOverflow = body.style.overflow;
+        body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            body.style.overflow = prevOverflow;
+        };
+    }, [onClose]);
+
+    return createPortal(
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 isolate" role="dialog" aria-modal="true">
+            <div className="absolute inset-0 z-0 bg-ink/60 backdrop-blur-sm animate-fade-in" onClick={onClose} aria-hidden="true" />
+            <div className="modal relative z-10 sm:max-w-2xl w-full">
+                <div className="drag-handle"><span /></div>
+                <div className="sticky top-0 bg-white/95 backdrop-blur px-4 sm:px-6 py-3.5 border-b border-line flex items-center justify-between z-10 rounded-t-3xl sm:rounded-t-2xl">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <span className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0
+                            ${isEntry ? "bg-sky-50 text-sky-700" : "bg-amber-50 text-amber-800"}`}>
+                            {isEntry ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+                        </span>
+                        <div className="min-w-0">
+                            <h2 className="font-extrabold text-ink truncate">
+                                {isEntry ? "Entrada" : "Salida"} · {tx.reference || "s/ref"}
+                            </h2>
+                            <p className="text-xs font-semibold text-ink-3">
+                                {tx.timestamp?.toDate ? format(tx.timestamp.toDate(), "dd/MM/yyyy HH:mm") : "--"}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} aria-label="Cerrar" className="btn-icon flex-shrink-0">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+                <div className="p-4 sm:p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-paper border border-line p-3">
+                            <p className="eyebrow flex items-center gap-1"><User className="h-3.5 w-3.5" /> Usuario</p>
+                            <p className="text-sm font-bold text-ink truncate mt-1">{users[tx.userId]?.name || "—"}</p>
+                        </div>
+                        <div className="rounded-xl bg-paper border border-line p-3">
+                            <p className="eyebrow flex items-center gap-1"><Store className="h-3.5 w-3.5" /> Sucursal</p>
+                            <p className="text-sm font-bold text-ink truncate mt-1">{tx.sucursal || "Principal"}</p>
+                        </div>
+                    </div>
+                    <div className="rounded-xl border border-line overflow-hidden">
+                        <div className="table-wrap">
+                            <table className="table">
+                                <thead><tr><th>Producto</th><th className="!text-center">Cant.</th><th className="!text-right">Costo</th><th className="!text-right">Subtotal</th></tr></thead>
+                                <tbody>
+                                    {tx.items?.map((item, i) => {
+                                        const p = products.find((x) => x.id === item.productId);
+                                        const cost = Number(p?.cost ?? item.cost ?? 0);
+                                        return (
+                                            <tr key={i}>
+                                                <td className="font-bold !text-ink">{item.name}</td>
+                                                <td className="!text-center font-bold text-brand-700 tnum">×{item.quantity}</td>
+                                                <td className="!text-right tnum">{money(cost)}</td>
+                                                <td className="!text-right font-extrabold !text-ink tnum">{money(cost * Number(item.quantity))}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {tx.notes && (
+                        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5">
+                            <p className="eyebrow text-amber-800 mb-1">Notas</p>
+                            <p className="text-sm text-ink-2">{tx.notes}</p>
+                        </div>
+                    )}
+                    <div className="flex justify-between items-end pt-3 border-t border-line">
+                        <span className="eyebrow">Total</span>
+                        <span className="text-2xl font-extrabold text-ink tnum">{money(rowTotal(tx, products))}</span>
+                    </div>
+
+                    {/* Acciones: mismo comprobante A4 que usa el Historial. */}
+                    <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
+                        <button type="button" onClick={onClose} className="btn-ghost flex-1">
+                            <X className="h-4 w-4" /> Cerrar
+                        </button>
+                        <button type="button" onClick={handlePdf} className="btn-soft flex-1">
+                            <FileDown className="h-4 w-4" /> Descargar PDF
+                        </button>
+                        <button type="button" onClick={handlePrint} className="btn-primary flex-1">
+                            <Printer className="h-4 w-4" /> Imprimir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>,
+        document.body
     );
 }

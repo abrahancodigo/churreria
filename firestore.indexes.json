@@ -27,6 +27,36 @@
                     "order": "ASCENDING"
                 }
             ]
+        },
+        {
+            "comment": "Correlativos: buscar folio duplicado dentro de una serie (tipo + folio)",
+            "collectionGroup": "transactions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "type",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "reference",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "comment": "Correlativos: folio más alto de una serie (bootstrap sin contador)",
+            "collectionGroup": "transactions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "type",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "reference",
+                    "order": "DESCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": []

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     onAuthStateChanged,
     signInWithEmailAndPassword,
@@ -7,14 +7,7 @@ import {
 } from "firebase/auth";
 import { auth, db } from "../firebase.config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-
-const AuthContext = createContext();
-
-// El provider y su hook viven juntos a propósito: es el patrón idiomático de
-// React y mantiene el contexto encapsulado. La regla de fast-refresh solo
-// afecta a la recarga en desarrollo, no al comportamiento en producción.
-// eslint-disable-next-line react-refresh/only-export-components
-export const useAuth = () => useContext(AuthContext);
+import { AuthContext } from "./auth-context";
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -58,7 +51,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => signOut(auth);
 
-    if (loading) return <div className="flex justify-center items-center h-screen h-[100dvh]">Loading...</div>;
+    if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
     return (
         <AuthContext.Provider value={{ user, userData, login, register, logout }}>

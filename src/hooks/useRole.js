@@ -1,4 +1,4 @@
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "./useAuth";
 
 export const useRole = () => {
     const { userData } = useAuth();

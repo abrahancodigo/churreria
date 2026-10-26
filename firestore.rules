@@ -1,8 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function onlyRoleUnchanged() {
+      return !('role' in request.resource.data)
+        || request.resource.data.role == resource.data.get('role', 'cashier');
+    }
+
+    // --- Company settings: read team, write admin ---
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Global counters: read team, write admin ---
+    match /counters/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Products: read team, write admin ---
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Transactions ---
+    match /transactions/{txId} {
+      allow read: if isSignedIn();
+      // Only admins register movements (entries/exits); they cannot be
+      // created on behalf of another user.
+      allow create: if isAdmin()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.type in ['sale', 'entry', 'exit'];
+      // Only admins fix or void history (stock is reverted in app code).
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      // Read own profile or, for admins, the whole team list.
+      allow get: if isSelf(userId) || isAdmin();
+      allow list: if isAdmin();
+      // Self-register always as cashier; admins may create anyone.
+      allow create: if isSelf(userId)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'cashier';
+      // Nobody can escalate their own role; only admins change roles.
+      allow update: if (isSelf(userId) && onlyRoleUnchanged()) || isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

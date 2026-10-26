@@ -23,13 +23,16 @@ export default defineConfig([
       },
     },
     rules: {
-      // Los componentes React se pasan como props destructuradas y se usan
-      // como <Componente />, lo que la regla no detecta como uso. El patrón
-      // ignora también esos nombres en mayúscula (vars y args).
-      'no-unused-vars': ['error', {
-        varsIgnorePattern: '^[A-Z_]',
-        argsIgnorePattern: '^[A-Z_]',
-      }],
+      // Los componentes (PascalCase) se detectan como usados dentro del JSX; el
+      // analisis base de ESLint no lo sabe y marcaria cada `Icon` como no usado.
+      'no-unused-vars': [
+        'error',
+        {
+          varsIgnorePattern: '^[A-Z_]',
+          argsIgnorePattern: '^[A-Z_]',
+          destructuredArrayIgnorePattern: '^[A-Z_]',
+        },
+      ],
     },
   },
 ])
