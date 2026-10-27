@@ -43,3 +43,28 @@ export const getReportTransactions = async ({ dateFrom, dateTo }) => {
         limit: REPORT_ROW_LIMIT
     };
 };
+
+/**
+ * Existencia del producto justo antes del inicio del rango consultado.
+ * Necesaria para que el cardex muestre el saldo real y no solo la variación
+ * neta del periodo consultado.
+ */
+export const getOpeningStock = async (productId, dateFrom) => {
+    if (!productId || !dateFrom) return 0;
+
+    const start = startOfDay(parseISO(dateFrom));
+    const q = query(
+        transactionsRef,
+        where("timestamp", "<", Timestamp.fromDate(start))
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.reduce((saldo, snapshotDoc) => {
+        const tx = snapshotDoc.data();
+        if (tx.type !== "entry" && tx.type !== "exit") return saldo;
+        const item = tx.items?.find((item) => item.productId === productId);
+        if (!item) return saldo;
+        const qty = Number(item.quantity || 0);
+        return saldo + (tx.type === "entry" ? qty : -qty);
+    }, 0);
+};

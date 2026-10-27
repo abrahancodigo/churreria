@@ -70,11 +70,14 @@ function useMovements(type, start, end) {
     return { data, loading };
 }
 
-function rowTotal(tx, products) {
+function rowTotal(tx) {
+    // Valor histórico del movimiento: el costo/precio guardado en cada partida.
     return (
         tx.items?.reduce((sum, item) => {
-            const p = products.find((x) => x.id === item.productId);
-            return sum + (Number(p?.cost ?? item.cost ?? 0) * Number(item.quantity));
+            const unit = tx.type === "entry" || tx.type === "exit"
+                ? Number(item.cost || 0)
+                : Number(item.price || 0);
+            return sum + unit * Number(item.quantity || 0);
         }, 0) || 0
     );
 }
@@ -104,8 +107,8 @@ export default function Dashboard() {
         [products]
     );
     const totalItems = useMemo(() => products.reduce((acc, p) => acc + Number(p.stock || 0), 0), [products]);
-    const totalEntries = useMemo(() => entries.reduce((a, tx) => a + rowTotal(tx, products), 0), [entries, products]);
-    const totalExits = useMemo(() => exits.reduce((a, tx) => a + rowTotal(tx, products), 0), [exits, products]);
+    const totalEntries = useMemo(() => entries.reduce((a, tx) => a + rowTotal(tx), 0), [entries]);
+    const totalExits = useMemo(() => exits.reduce((a, tx) => a + rowTotal(tx), 0), [exits]);
     const lowStock = useMemo(() => products.filter((p) => Number(p.stock) <= 10).length, [products]);
 
     const shiftMonth = (delta) => {
@@ -205,21 +208,21 @@ export default function Dashboard() {
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <MovementCard title="Entradas" kind="entry" data={entries} total={totalEntries}
-                        products={products} onView={setViewingTx} />
+                        onView={setViewingTx} />
                     <MovementCard title="Salidas" kind="exit" data={exits} total={totalExits}
-                        products={products} onView={setViewingTx} />
+                        onView={setViewingTx} />
                 </div>
             )}
 
             {/* Detalle del movimiento */}
             {viewingTx && (
-                <TxDetailModal tx={viewingTx} products={products} onClose={() => setViewingTx(null)} />
+                <TxDetailModal tx={viewingTx} onClose={() => setViewingTx(null)} />
             )}
         </div>
     );
 }
 
-function MovementCard({ title, kind, data, total, products, onView }) {
+function MovementCard({ title, kind, data, total, onView }) {
     const isEntry = kind === "entry";
     const Icon = isEntry ? ArrowDownLeft : ArrowUpRight;
     // Banda de color superior por tipo: misma leyenda visual que los KPIs.
@@ -265,7 +268,7 @@ function MovementCard({ title, kind, data, total, products, onView }) {
                                     </p>
                                 </div>
                                 <span className="font-extrabold text-sm text-ink tnum whitespace-nowrap">
-                                    {money(rowTotal(tx, products))}
+                                    {money(rowTotal(tx))}
                                 </span>
                                 <ChevronRightSm className="h-4 w-4 text-ink-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
@@ -277,7 +280,7 @@ function MovementCard({ title, kind, data, total, products, onView }) {
     );
 }
 
-function TxDetailModal({ tx, products, onClose }) {
+function TxDetailModal({ tx, onClose }) {
     const isEntry = tx.type === "entry";
     const { addToast } = useToast();
     const company = useCompany();
@@ -357,14 +360,15 @@ function TxDetailModal({ tx, products, onClose }) {
                                 <thead><tr><th>Producto</th><th className="!text-center">Cant.</th><th className="!text-right">Costo</th><th className="!text-right">Subtotal</th></tr></thead>
                                 <tbody>
                                     {tx.items?.map((item, i) => {
-                                        const p = products.find((x) => x.id === item.productId);
-                                        const cost = Number(p?.cost ?? item.cost ?? 0);
+                                        const unit = tx.type === "entry" || tx.type === "exit"
+                                            ? Number(item.cost || 0)
+                                            : Number(item.price || 0);
                                         return (
                                             <tr key={i}>
                                                 <td className="font-bold !text-ink">{item.name}</td>
                                                 <td className="!text-center font-bold text-brand-700 tnum">×{item.quantity}</td>
-                                                <td className="!text-right tnum">{money(cost)}</td>
-                                                <td className="!text-right font-extrabold !text-ink tnum">{money(cost * Number(item.quantity))}</td>
+                                                <td className="!text-right tnum">{money(unit)}</td>
+                                                <td className="!text-right font-extrabold !text-ink tnum">{money(unit * Number(item.quantity))}</td>
                                             </tr>
                                         );
                                     })}
@@ -380,7 +384,7 @@ function TxDetailModal({ tx, products, onClose }) {
                     )}
                     <div className="flex justify-between items-end pt-3 border-t border-line">
                         <span className="eyebrow">Total</span>
-                        <span className="text-2xl font-extrabold text-ink tnum">{money(rowTotal(tx, products))}</span>
+                        <span className="text-2xl font-extrabold text-ink tnum">{money(rowTotal(tx))}</span>
                     </div>
 
                     {/* Acciones: mismo comprobante A4 que usa el Historial. */}

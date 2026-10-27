@@ -6,6 +6,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Un usuario autenticado solo consulta datos del negocio si su perfil
+    // sigue existiendo. Al borrar users/{uid}, el acceso a datos cae de
+    // inmediato aunque su token de Authentication tarde en revocarse.
+    function hasActiveProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function isAdmin() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -23,25 +31,25 @@ service cloud.firestore {
 
     // --- Company settings: read team, write admin ---
     match /settings/{docId} {
-      allow read: if isSignedIn();
+      allow read: if hasActiveProfile();
       allow write: if isAdmin();
     }
 
     // --- Global counters: read team, write admin ---
     match /counters/{docId} {
-      allow read: if isSignedIn();
+      allow read: if hasActiveProfile();
       allow write: if isAdmin();
     }
 
     // --- Products: read team, write admin ---
     match /products/{productId} {
-      allow read: if isSignedIn();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
 
     // --- Transactions ---
     match /transactions/{txId} {
-      allow read: if isSignedIn();
+      allow read: if hasActiveProfile();
       // Only admins register movements (entries/exits); they cannot be
       // created on behalf of another user.
       allow create: if isAdmin()
@@ -56,7 +64,6 @@ service cloud.firestore {
       // Read own profile or, for admins, the whole team list.
       allow get: if isSelf(userId) || isAdmin();
       allow list: if isAdmin();
-      // Self-register always as cashier; admins may create anyone.
       allow create: if isSelf(userId)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role == 'cashier';

@@ -71,12 +71,14 @@ export default function Transactions() {
     };
 
     const getUpdatedTotal = (tx) => {
-        if (!tx?.items || products.length === 0) return Number(tx?.total || 0);
-        const isMovement = tx.type === "entry" || tx.type === "exit";
+        if (!tx?.items) return Number(tx?.total || 0);
+        // El historial usa el valor grabado en el movimiento: si cambia el
+        // precio/costo del producto, lo ya facturado no debe moverse.
         return tx.items.reduce((acc, item) => {
-            const p = products.find((x) => x.id === item.productId);
-            const unit = isMovement ? Number(p?.cost ?? item.cost ?? 0) : Number(p?.price ?? item.price ?? 0);
-            return acc + unit * Number(item.quantity);
+            const unit = tx.type === "entry" || tx.type === "exit"
+                ? Number(item.cost || 0)
+                : Number(item.price || 0);
+            return acc + unit * Number(item.quantity || 0);
         }, 0);
     };
 

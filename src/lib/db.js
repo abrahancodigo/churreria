@@ -204,13 +204,16 @@ export const addProduct = async (productData) => {
 
 export const updateProduct = async (id, data) => {
     const docRef = doc(db, "products", id);
-    return await updateDoc(docRef, {
-        ...data,
-        stock: data.stock !== undefined ? Number(data.stock) : undefined,
-        price: data.price !== undefined ? Number(data.price) : undefined,
-        cost: data.cost !== undefined ? Number(data.cost) : undefined,
-        last_updated: new Date()
-    });
+    // Firestore rechaza valores `undefined`; solo enviamos los campos presentes.
+    const payload = Object.fromEntries(
+        Object.entries(data || {}).filter(([, value]) => value !== undefined)
+    );
+    if (payload.stock !== undefined) payload.stock = Number(payload.stock) || 0;
+    if (payload.price !== undefined) payload.price = Number(payload.price) || 0;
+    if (payload.cost !== undefined) payload.cost = Number(payload.cost) || 0;
+    payload.last_updated = new Date();
+
+    return await updateDoc(docRef, payload);
 };
 
 // --- Transactions & Stock Management ---
@@ -260,10 +263,27 @@ export const adjustStock = async (items, type, userId, options = {}, legacyRefer
     } = opts;
 
     try {
+        // Une partidas repetidas en una sola: sin esto, dos líneas del mismo
+        // producto leen/escriben el mismo documento y solo sobrevive la última.
+        const itemsByProduct = new Map();
+        for (const item of items || []) {
+            if (!item?.productId) continue;
+            const existing = itemsByProduct.get(item.productId);
+            if (existing) {
+                existing.quantity = Number(existing.quantity || 0) + Number(item.quantity || 0);
+            } else {
+                itemsByProduct.set(item.productId, { ...item, quantity: Number(item.quantity || 0) });
+            }
+        }
+        const mergedItems = [...itemsByProduct.values()];
+        if (mergedItems.length === 0) {
+            throw new Error("Agrega al menos un producto.");
+        }
+
         // Las entradas y salidas se valoran a costo (igual que reportes y PDF);
         // una venta se valora a precio de venta.
         const isMovement = type === 'entry' || type === 'exit';
-        const total = items.reduce((acc, item) => {
+        const total = mergedItems.reduce((acc, item) => {
             const unit = isMovement ? Number(item.cost || 0) : Number(item.price || 0);
             return acc + unit * Number(item.quantity || 0);
         }, 0);
@@ -284,7 +304,7 @@ export const adjustStock = async (items, type, userId, options = {}, legacyRefer
         await runTransaction(db, async (transaction) => {
             // 1. READ: estado actual de los productos
             const productReads = [];
-            for (const item of items) {
+            for (const item of mergedItems) {
                 const productRef = doc(db, "products", item.productId);
                 const productDoc = await transaction.get(productRef);
                 if (!productDoc.exists()) {
@@ -349,7 +369,7 @@ export const adjustStock = async (items, type, userId, options = {}, legacyRefer
             // 2. WRITE: registro del movimiento
             transaction.set(newTransactionRef, {
                 type,
-                items,
+                items: mergedItems,
                 total,
                 timestamp: transactionDate,
                 userId,
@@ -432,7 +452,12 @@ export const editTransaction = async (transactionId, oldData, newData) => {
                     console.warn("Product not found during edit (old):", productId);
                     continue;
                 }
-                reads.push({ ref: productRef, currentStock: productDoc.data().stock || 0, productId });
+                reads.push({
+                    ref: productRef,
+                    currentStock: productDoc.data().stock || 0,
+                    productId,
+                    name: productDoc.data().name || productId
+                });
             }
 
             // FASE 1.b (lecturas): folio final según la serie del tipo nuevo
@@ -508,6 +533,15 @@ export const editTransaction = async (transactionId, oldData, newData) => {
                 }
 
                 if (newStock !== read.currentStock) {
+                    // La edición no debe crear existencias negativas de forma
+                    // silenciosa; usar un ajuste explícito para esos casos.
+                    if (newData.type !== 'entry' && newStock < 0) {
+                        const error = new Error(
+                            `Stock insuficiente para editar: ${read.name} quedaría en ${newStock}.`
+                        );
+                        error.code = "insufficient-stock";
+                        throw error;
+                    }
                     transaction.update(read.ref, {
                         stock: newStock,
                         last_updated: new Date()

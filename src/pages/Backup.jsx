@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Database, CheckCircle } from "lucide-react";
+import { Download, Database, CheckCircle, AlertTriangle } from "lucide-react";
 import { db } from "../firebase.config";
 import { collection, getDocs } from "firebase/firestore";
 import { useAuth } from "../hooks/useAuth";
@@ -36,11 +36,11 @@ export default function Backup() {
             const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
             const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
             downloadJSON(docs, `${name}_backup_${timestamp}.json`);
-            return docs.length;
+            return { count: docs.length, error: null };
         } catch (error) {
             console.error(`Error backing up ${name}:`, error);
             addToast(`Error en ${name}: ${error.message}`, "error");
-            return 0;
+            return { count: 0, error: error.message };
         }
     };
 
@@ -48,24 +48,32 @@ export default function Backup() {
         setBackupInProgress(true);
         setBackupComplete(false);
         const counts = {};
+        const errors = {};
         try {
             for (const col of COLLECTIONS) {
-                const count = await backupCollection(col);
-                counts[col] = count;
-                addToast(`${col}: ${count} documentos exportados`);
+                const result = await backupCollection(col);
+                counts[col] = result.count;
+                if (result.error) errors[col] = result.error;
+                else addToast(`${col}: ${result.count} documentos exportados`);
             }
             const summaryData = {
                 timestamp: new Date().toISOString(),
                 projectId: db.app.options.projectId,
                 backupBy: user?.email,
                 collections: counts,
+                errors,
+                partial: Object.keys(errors).length > 0,
                 totalDocuments: Object.values(counts).reduce((a, b) => a + b, 0),
             };
             const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
             downloadJSON(summaryData, `backup_summary_${timestamp}.json`);
             setSummary(summaryData);
             setBackupComplete(true);
-            addToast("✅ Backup completado");
+            if (summaryData.partial) {
+                addToast("Backup parcial: revisa las colecciones con error.", "error");
+            } else {
+                addToast("✅ Backup completado");
+            }
         } catch (error) {
             addToast("Error durante el backup: " + error.message, "error");
         } finally {
@@ -123,11 +131,25 @@ export default function Backup() {
             </div>
 
             {backupComplete && summary && (
-                <div className="card !border-emerald-200 max-w-2xl">
+                <div className={`card max-w-2xl ${summary.partial ? "!border-amber-200" : "!border-emerald-200"}`}>
                     <div className="flex items-center gap-2.5 mb-3">
-                        <CheckCircle className="h-6 w-6 text-emerald-700" />
-                        <h2 className="font-extrabold text-emerald-800">Backup completado</h2>
+                        {summary.partial
+                            ? <AlertTriangle className="h-6 w-6 text-amber-700" />
+                            : <CheckCircle className="h-6 w-6 text-emerald-700" />}
+                        <h2 className={`font-extrabold ${summary.partial ? "text-amber-800" : "text-emerald-800"}`}>
+                            {summary.partial ? "Backup parcial" : "Backup completado"}
+                        </h2>
                     </div>
+                    {summary.partial && (
+                        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 mb-3">
+                            <p className="text-sm font-bold text-amber-900 mb-1">Colecciones con error</p>
+                            <ul className="text-sm text-amber-800 space-y-0.5">
+                                {Object.entries(summary.errors).map(([col, message]) => (
+                                    <li key={col}><b className="capitalize">{col}</b>: {message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2 mb-3">
                         {Object.entries(summary.collections).map(([col, count]) => (
                             <div key={col} className="flex justify-between items-center p-3 bg-paper border border-line rounded-xl">

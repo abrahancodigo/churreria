@@ -20,9 +20,15 @@ import {
 } from "../lib/movements";
 import { PageHeader, EmptyState, ListSkeleton, PrintModal, Chip } from "../components/ui";
 
-const todayStr = () => new Date().toISOString().split("T")[0];
+/** Fecha de hoy en formato ISO, construida en la zona horaria local. */
+const todayStr = () => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+};
+
 const REFERENCE_MAX_LENGTH = 8;
-const DRAFT_KEY = "churreria:movimiento:borrador";
+const DRAFT_KEY_PREFIX = "churreria:movimiento:borrador";
 const DRAFT_VERSION = 1;
 const OTHER_SUCURSAL = "__otra__";
 
@@ -40,10 +46,13 @@ const emptyDraft = () => ({
     items: [],
 });
 
+/** Clave privada por usuario: dos sesiones no deben heredarse el borrador. */
+const draftKey = (uid) => `${DRAFT_KEY_PREFIX}:${uid || "anon"}`;
+
 /** Lee el borrador guardado. Nunca rompe la pantalla por un JSON corrupto. */
-const readDraft = () => {
+const readDraft = (uid) => {
     try {
-        const raw = localStorage.getItem(DRAFT_KEY);
+        const raw = localStorage.getItem(draftKey(uid));
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!parsed || parsed.version !== DRAFT_VERSION) return null;
@@ -54,10 +63,12 @@ const readDraft = () => {
 };
 
 export default function StockAdjustment() {
+    const { user } = useAuth();
+
     // El borrador se lee una sola vez, al montar. `useRef(readDraft())` evaluaria
     // el argumento en cada render y golpearia localStorage sin necesidad.
     const draftRef = useRef(null);
-    if (draftRef.current === null) draftRef.current = readDraft() || false;
+    if (draftRef.current === null) draftRef.current = readDraft(user?.uid) || false;
     const draft = draftRef.current || null;
 
     const [products, setProducts] = useState([]);
@@ -88,7 +99,6 @@ export default function StockAdjustment() {
     const [checkingRef, setCheckingRef] = useState(false);
     const [refTaken, setRefTaken] = useState(false);
 
-    const { user } = useAuth();
     const { addToast } = useToast();
     const { isAdmin } = useRole();
     const company = useCompany();
@@ -103,6 +113,25 @@ export default function StockAdjustment() {
         });
         return () => unsub();
     }, []);
+
+    // Los datos guardados en el borrador son una instantánea: se sincronizan
+    // contra el catálogo actual para no mostrar advertencias de stock viejas.
+    useEffect(() => {
+        if (!products.length) return;
+        setItems((prev) => prev.map((item) => {
+            const product = products.find((p) => p.id === item.productId);
+            return product
+                ? {
+                    ...item,
+                    name: product.name || item.name,
+                    sku: product.sku || "",
+                    price: Number(product.price || 0),
+                    cost: Number(product.cost || 0),
+                    currentStock: Number(product.stock || 0),
+                }
+                : item;
+        }));
+    }, [products]);
 
     // Movimientos recientes: solo para conocer sucursales ya usadas.
     useEffect(() => {
@@ -161,14 +190,14 @@ export default function StockAdjustment() {
         const handle = setTimeout(() => {
             try {
                 const data = { type, reason, party, sucursal, sucursalOther, notes, date: selectedDate, items };
-                localStorage.setItem(DRAFT_KEY, JSON.stringify({ version: DRAFT_VERSION, data }));
+                localStorage.setItem(draftKey(user?.uid), JSON.stringify({ version: DRAFT_VERSION, data }));
             } catch { /* almacenamiento lleno o bloqueado: se ignora */ }
         }, 400);
         return () => clearTimeout(handle);
-    }, [type, reason, party, sucursal, sucursalOther, notes, selectedDate, items]);
+    }, [user?.uid, type, reason, party, sucursal, sucursalOther, notes, selectedDate, items]);
 
     const clearDraft = () => {
-        try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+        try { localStorage.removeItem(draftKey(user?.uid)); } catch { /* noop */ }
     };
 
     // --- Derivados ---------------------------------------------------------

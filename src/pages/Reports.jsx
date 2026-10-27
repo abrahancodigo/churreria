@@ -8,7 +8,7 @@ import { useCompany } from "../hooks/useCompany";
 import { PageHeader, EmptyState, Sheet } from "../components/ui";
 import { TypeBadge } from "../components/ui";
 import { typeLabel } from "../components/TypeBadge";
-import { getReportTransactions, REPORT_ROW_LIMIT } from "../services/reportService";
+import { getReportTransactions, getOpeningStock, REPORT_ROW_LIMIT } from "../services/reportService";
 
 export default function Reports() {
     const [transactions, setTransactions] = useState([]);
@@ -17,6 +17,7 @@ export default function Reports() {
     const [searched, setSearched] = useState(false);
     const [truncated, setTruncated] = useState(false);
     const [viewingTransaction, setViewingTransaction] = useState(null);
+    const [openingStock, setOpeningStock] = useState(0);
     const { addToast } = useToast();
     const company = useCompany();
 
@@ -71,6 +72,22 @@ export default function Reports() {
         return Array.from(set).sort((a, b) => a.localeCompare(b));
     }, [transactions]);
 
+    // Saldo del producto antes del rango: el cardex necesita saldo inicial real.
+    useEffect(() => {
+        let active = true;
+        if (reportType !== "cardex" || selectedProduct === "all" || !dateFrom) {
+            setOpeningStock(0);
+            return undefined;
+        }
+        getOpeningStock(selectedProduct, dateFrom)
+            .then((saldo) => { if (active) setOpeningStock(saldo); })
+            .catch((error) => {
+                console.error("Error calculando saldo inicial:", error);
+                if (active) setOpeningStock(0);
+            });
+        return () => { active = false; };
+    }, [reportType, selectedProduct, dateFrom]);
+
     const fetchTransactions = async () => {
         if (!dateFrom || !dateTo) {
             addToast("Selecciona la fecha inicial y la fecha final.", "error");
@@ -111,12 +128,11 @@ export default function Reports() {
         });
     }, [transactions, selectedType, selectedSucursal, selectedReason, selectedProduct]);
 
-    const unitValue = (tx, item) => {
-        const p = products.find((x) => x.id === item.productId);
-        return tx.type === "entry" || tx.type === "exit"
-            ? Number(p?.cost ?? item.cost ?? 0)
-            : Number(p?.price ?? item.price ?? 0);
-    };
+    const unitValue = (tx, item) => (
+        tx.type === "entry" || tx.type === "exit"
+            ? Number(item.cost || 0)
+            : Number(item.price || 0)
+    );
 
     const totals = useMemo(() => {
         let entradas = 0;
@@ -129,7 +145,6 @@ export default function Reports() {
         const list = selectedProduct === "all" ? products : products.filter((p) => p.id === selectedProduct);
         const inventoryValue = list.reduce((a, p) => a + Number(p.cost || 0) * Number(p.stock || 0), 0);
         return { entradas, salidas, inventoryValue };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filteredTransactions, products, selectedProduct]);
 
     const sucursalData = useMemo(() => {
@@ -138,14 +153,15 @@ export default function Reports() {
             const s = tx.sucursal || getSucursal(tx) || "Sin sucursal";
             if (!summary[s]) summary[s] = { sucursal: s, entradasU: 0, entradasM: 0, salidasU: 0, salidasM: 0 };
             tx.items?.forEach((item) => {
-                const cost = Number(products.find((p) => p.id === item.productId)?.cost ?? item.cost ?? 0);
-                const qty = Number(item.quantity);
-                if (tx.type === "entry") { summary[s].entradasU += qty; summary[s].entradasM += cost * qty; }
-                else if (tx.type === "exit" || tx.type === "sale") { summary[s].salidasU += qty; summary[s].salidasM += cost * qty; }
+                // Igual que el historial: cada movimiento conserva su valor original.
+                const value = unitValue(tx, item);
+                const qty = Number(item.quantity || 0);
+                if (tx.type === "entry") { summary[s].entradasU += qty; summary[s].entradasM += value * qty; }
+                else if (tx.type === "exit" || tx.type === "sale") { summary[s].salidasU += qty; summary[s].salidasM += value * qty; }
             });
         });
         return Object.values(summary).sort((a, b) => a.sucursal.localeCompare(b.sucursal));
-    }, [filteredTransactions, products]);
+    }, [filteredTransactions]);
 
     const cardexData = useMemo(() => {
         if (reportType !== "cardex" || selectedProduct === "all") return [];
@@ -154,7 +170,7 @@ export default function Reports() {
             const db = b.timestamp?.toDate?.() || new Date(0);
             return da - db;
         });
-        let saldo = 0;
+        let saldo = Number(openingStock) || 0;
         const rows = [];
         sorted.forEach((tx) => {
             const item = tx.items?.find((i) => i.productId === selectedProduct);
@@ -173,7 +189,7 @@ export default function Reports() {
             });
         });
         return rows;
-    }, [reportType, selectedProduct, filteredTransactions]);
+    }, [reportType, selectedProduct, filteredTransactions, openingStock]);
 
     const exportToExcel = async () => {
         let rows;
@@ -360,6 +376,9 @@ export default function Reports() {
                 <div className="card !p-0 overflow-hidden">
                     <div className="px-4 py-3 border-b border-line bg-paper">
                         <h3 className="font-extrabold text-ink">Cardex: {products.find((p) => p.id === selectedProduct)?.name}</h3>
+                        <p className="text-xs font-semibold text-ink-3 mt-0.5">
+                            Saldo inicial: <b className="text-ink tnum">{openingStock}</b>
+                        </p>
                     </div>
                     <div className="table-wrap">
                         <table className="table">

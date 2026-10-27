@@ -56,8 +56,19 @@ export default function Settings() {
 
     const handleSaveCompany = async (e) => {
         e.preventDefault();
+        if (companyInfo.logoUrl) {
+            try {
+                const url = new URL(companyInfo.logoUrl);
+                if (url.protocol !== "https:" && url.protocol !== "http:") {
+                    throw new Error("protocolo no permitido");
+                }
+            } catch {
+                addToast("El logo debe ser una URL http(s) válida.", "error");
+                return;
+            }
+        }
         try {
-            await setDoc(doc(db, "settings", "company"), companyInfo);
+            await setDoc(doc(db, "settings", "company"), companyInfo, { merge: true });
             addToast("¡Información de la empresa guardada!");
         } catch (error) {
             addToast("Error al guardar: " + error.message, "error");
@@ -95,7 +106,7 @@ export default function Settings() {
             addToast("Debe quedar al menos un administrador.", "error");
             return;
         }
-        if (!window.confirm("¿Estás seguro? Este usuario perderá el acceso.")) return;
+        if (!window.confirm("¿Eliminar este perfil? Perderá acceso a los datos de inmediato. También elimina su cuenta en Firebase Authentication para desactivar la sesión por completo.")) return;
         try {
             await deleteDoc(doc(db, "users", userId));
             setUsersList((prev) => prev.filter((u) => u.id !== userId));

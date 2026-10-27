@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase.config";
 import { useAuth } from "../hooks/useAuth";
@@ -48,9 +48,10 @@ export const CompanyProvider = ({ children }) => {
 
     const companyInfo = state.uid === userId ? state.info : FALLBACK_COMPANY;
     const loading = Boolean(userId) && (state.uid !== userId || state.loading);
+    const value = useMemo(() => ({ companyInfo, loading }), [companyInfo, loading]);
 
     return (
-        <CompanyContext.Provider value={{ companyInfo, loading }}>
+        <CompanyContext.Provider value={value}>
             {children}
         </CompanyContext.Provider>
     );

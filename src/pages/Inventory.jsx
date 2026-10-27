@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, Pencil, Trash2, X, Search, Package, Image as ImageIcon, Percent } from "lucide-react";
 import { getProducts, addProduct, updateProduct, deleteProduct } from "../lib/db";
+import { processImageFile } from "../lib/image";
 import { useToast } from "../hooks/useToast";
 import { useRole } from "../hooks/useRole";
 import { PageHeader, EmptyState, ListSkeleton, Sheet, IconButton, StatCard } from "../components/ui";
@@ -259,18 +260,7 @@ export default function Inventory() {
             )}
 
             {/* Visor de imagen */}
-            {viewingImage && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/85 p-4" onClick={() => setViewingImage(null)} role="dialog" aria-modal="true">
-                    <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => setViewingImage(null)} aria-label="Cerrar imagen"
-                            className="absolute -top-12 right-0 h-10 w-10 flex items-center justify-center rounded-xl text-white/85 hover:text-white hover:bg-white/10">
-                            <X className="h-6 w-6" />
-                        </button>
-                        <img src={viewingImage.url} alt={viewingImage.name} className="w-full max-h-[80vh] object-contain rounded-2xl bg-white" />
-                        <p className="text-white text-center mt-2 font-bold">{viewingImage.name}</p>
-                    </div>
-                </div>
-            )}
+            {viewingImage && <ImageViewer image={viewingImage} onClose={() => setViewingImage(null)} />}
 
             {/* Alta / edición */}
             <Sheet open={isModalOpen} onClose={() => setIsModalOpen(false)} accent="sky"
@@ -288,12 +278,16 @@ export default function Inventory() {
                             )}
                             <input
                                 id="inv-image" type="file" accept="image/*"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                     const file = e.target.files[0];
+                                    e.target.value = "";
                                     if (!file) return;
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => setFormData((prev) => ({ ...prev, image: reader.result }));
-                                    reader.readAsDataURL(file);
+                                    try {
+                                        const dataUrl = await processImageFile(file);
+                                        setFormData((prev) => ({ ...prev, image: dataUrl }));
+                                    } catch (error) {
+                                        addToast(error.message, "error");
+                                    }
                                 }}
                                 className="block w-full text-sm text-ink-3 file:mr-3 file:min-h-[40px] file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
                             />
@@ -350,6 +344,38 @@ export default function Inventory() {
                     </div>
                 </form>
             </Sheet>
+        </div>
+    );
+}
+
+function ImageViewer({ image, onClose }) {
+    const closeRef = useRef(null);
+
+    useEffect(() => {
+        const previous = document.activeElement;
+        closeRef.current?.focus({ preventScroll: true });
+        const onKey = (e) => { if (e.key === "Escape") onClose(); };
+        document.addEventListener("keydown", onKey);
+        const { body } = document;
+        const previousOverflow = body.style.overflow;
+        body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            body.style.overflow = previousOverflow;
+            if (previous instanceof HTMLElement) previous.focus({ preventScroll: true });
+        };
+    }, [onClose]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/85 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`Imagen de ${image.name}`}>
+            <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+                <button ref={closeRef} onClick={onClose} aria-label="Cerrar imagen"
+                    className="h-10 w-10 -mb-2 flex items-center justify-center rounded-xl text-white/85 hover:text-white hover:bg-white/10">
+                    <X className="h-6 w-6" />
+                </button>
+                <img src={image.url} alt={image.name} className="w-full max-h-[78vh] object-contain rounded-2xl bg-white" />
+                <p className="text-white text-center mt-2 font-bold">{image.name}</p>
+            </div>
         </div>
     );
 }

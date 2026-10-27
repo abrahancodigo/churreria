@@ -224,6 +224,7 @@ const CloseGlyph = () => (
  */
 function ModalLayer({ open, onClose, zClass = "z-50", children }) {
     const closingRef = useRef(onClose);
+    const containerRef = useRef(null);
 
     // Mantiene la referencia al cierre sin volver a suscribir el listener en
     // cada render del padre (y sin escribir el ref durante el render).
@@ -234,7 +235,41 @@ function ModalLayer({ open, onClose, zClass = "z-50", children }) {
     useEffect(() => {
         if (!open) return;
         const previous = document.activeElement;
-        const onKey = (e) => { if (e.key === "Escape") closingRef.current?.(); };
+        const container = containerRef.current;
+        const focusables = () => {
+            if (!container) return [];
+            return [...container.querySelectorAll(
+                'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )].filter((el) => el instanceof HTMLElement && el.offsetParent !== null);
+        };
+
+        // Enfoca el primer control del modal y atrapa Tab dentro del dialogo.
+        requestAnimationFrame(() => {
+            focusables()[0]?.focus({ preventScroll: true });
+        });
+
+        const onKey = (e) => {
+            if (e.key === "Escape") {
+                closingRef.current?.();
+                return;
+            }
+            if (e.key !== "Tab") return;
+            const list = focusables();
+            if (!list.length) {
+                e.preventDefault();
+                return;
+            }
+            const first = list[0];
+            const last = list[list.length - 1];
+            const current = document.activeElement;
+            if (e.shiftKey && (!container?.contains(current) || current === first)) {
+                first.focus({ preventScroll: true });
+                e.preventDefault();
+            } else if (!e.shiftKey && (!container?.contains(current) || current === last)) {
+                first.focus({ preventScroll: true });
+                e.preventDefault();
+            }
+        };
         document.addEventListener("keydown", onKey);
 
         // Bloquea el desplazamiento del fondo sin saltar al inicio de la pagina.
@@ -255,7 +290,7 @@ function ModalLayer({ open, onClose, zClass = "z-50", children }) {
 
     if (!open) return null;
     return createPortal(
-        <div className={`fixed inset-0 ${zClass} flex items-end sm:items-center justify-center sm:p-4 isolate`}
+        <div ref={containerRef} className={`fixed inset-0 ${zClass} flex items-end sm:items-center justify-center sm:p-4 isolate`}
             role="dialog" aria-modal="true">
             {children}
         </div>,
